@@ -1,0 +1,3215 @@
+[student@workstation dockerfile-review]$ mysql -uuser1 -pmypa55 --protocol tcp -h localhost
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 69
+Server version: 8.0.21 Source distribution
+
+Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| testdb             |
++--------------------+
+2 rows in set (0.01 sec)
+
+mysql> exit
+Bye
+[student@workstation dockerfile-review]$ cat ~/token 
+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
+[student@workstation dockerfile-review]$ cd /home/student/DO180/labs/multicontainer-application
+[student@workstation multicontainer-application]$ mysql -uuser1  -h 127.0.0.1 -pmypa55 -P3306 items < db.sql
+mysql: [Warning] Using a password on the command line interface can be insecure.
+ERROR 2003 (HY000): Can't connect to MySQL server on '127.0.0.1' (111)
+[student@workstation multicontainer-application]$ mysql -uuser1  -h 127.0.0.1 -pmypa55 -P3306 items < db.sql
+mysql: [Warning] Using a password on the command line interface can be insecure.
+[student@workstation multicontainer-application]$ 
+[student@workstation multicontainer-application]$ lab install-storage start
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+chdir: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+
+Checking prerequisites for Guided Exercise: Introducing OpenShift Dynamic Storage
+
+ Verify the OpenShift cluster is running:
+ · Router pods are available...................................  SUCCESS
+ · OAuth pods are available....................................  SUCCESS
+ · API pods are available......................................  SUCCESS
+ · Control plane node 'master01' is ready......................  SUCCESS
+ · Control plane node 'master02' is ready......................  SUCCESS
+ · Control plane node 'master03' is ready......................  SUCCESS
+ Checking for conflicts with existing OpenShift projects:
+ · The 'install-storage' project is absent.....................  SUCCESS
+
+Setting up the classroom for Guided Exercise: Introducing OpenShift Dynamic Storage
+
+ · Download exercise files.....................................  SUCCESS
+ · Persistent volume claim 'postgresql-storage' is not present.  SUCCESS
+ · Application 'postgres-persistent' is not present............  SUCCESS
+ · Application 'postgres-persistent2' is not present...........  SUCCESS
+
+Overall start status...........................................  SUCCESS
+
+[student@workstation multicontainer-application]$ source /usr/local/etc/ocp4.config
+[student@workstation multicontainer-application]$ oc login -u kubeadmin -p ${RHT_OCP4_KUBEADM_PASSWD}  https://api.ocp4.example.com:6443
+Login successful.
+
+You have access to 60 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "default".
+error: getwd: no such file or directory
+[student@workstation multicontainer-application]$ oc new-project install-storage
+Now using project "install-storage" on server "https://api.ocp4.example.com:6443".
+
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=k8s.gcr.io/serve_hostname
+
+[student@workstation multicontainer-application]$ oc get storageclass
+NAME                    PROVISIONER               RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+nfs-storage (default)   nfs-storage-provisioner   Delete          Immediate           false                  71d
+[student@workstation multicontainer-application]$ oc new-app --name postgresql-persistent  --docker-image registry.redhat.io/rhel8/postgresql-13:1-7  -e POSTGRESQL_USER=redhat  -e POSTGRESQL_PASSWORD=redhat123  -e POSTGRESQL_DATABASE=persistentdb
+--> Found container image cafc055 (4 months old) from registry.redhat.io for "registry.redhat.io/rhel8/postgresql-13:1-7"
+
+    PostgreSQL 13 
+    ------------- 
+    PostgreSQL is an advanced Object-Relational database management system (DBMS). The image contains the client and server programs that you'll need to create, run, maintain and access a PostgreSQL DBMS server.
+
+    Tags: database, postgresql, postgresql13, postgresql-13
+
+    * An image stream tag will be created as "postgresql-persistent:1-7" that will track this image
+
+--> Creating resources ...
+    imagestream.image.openshift.io "postgresql-persistent" created
+    deployment.apps "postgresql-persistent" created
+    service "postgresql-persistent" created
+--> Success
+    Application is not exposed. You can expose services to the outside world by executing one or more of the commands below:
+     'oc expose service/postgresql-persistent' 
+    Run 'oc status' to view your app.
+[student@workstation multicontainer-application]$ oc set volumes deployment/postgresql-persistent  --add --name postgresql-storage --type pvc --claim-class nfs-storage  --claim-mode rwo --claim-size 10Gi --mount-path /var/lib/pgsql  --claim-name postgresql-storage
+deployment.apps/postgresql-persistent volume updated
+[student@workstation multicontainer-application]$ oc get pvc
+NAME                 STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+postgresql-storage   Bound    pvc-fd6dbc58-dc3c-480b-b481-7054f77309aa   10Gi       RWO            nfs-storage    29s
+[student@workstation multicontainer-application]$ oc get pv  -o custom-columns=NAME:.metadata.name,CLAIM:.spec.claimRef.name
+NAME                                       CLAIM
+pvc-085782c7-191b-4d41-87cc-26e94dc15f84   registry-claim
+pvc-0ca1e8ed-da26-4876-8897-7eda3a7a75b4   nexus-pvc
+pvc-fd6dbc58-dc3c-480b-b481-7054f77309aa   postgresql-storage
+[student@workstation multicontainer-application]$ cd ~/DO280/labs/install-storage
+[student@workstation install-storage]$ ./init_data.sh
+Populating characters table
+CREATE TABLE
+INSERT 0 5
+[student@workstation install-storage]$ ./check_data.sh
+Checking characters table
+ id |          name           |           nationality            
+----+-------------------------+----------------------------------
+  1 | Wolfgang Amadeus Mozart | Prince-Archbishopric of Salzburg
+  2 | Ludwig van Beethoven    | Bonn, Germany
+  3 | Johann Sebastian Bach   | Eisenach, Germany
+  4 | José Pablo Moncayo     | Guadalajara, México
+  5 | Niccolò Paganini       | Genoa, Italy
+(5 rows)
+
+[student@workstation install-storage]$ oc delete all -l app=postgresql-persistent
+service "postgresql-persistent" deleted
+deployment.apps "postgresql-persistent" deleted
+imagestream.image.openshift.io "postgresql-persistent" deleted
+[student@workstation install-storage]$ oc new-app --name postgresql-persistent2  --docker-image registry.redhat.io/rhel8/postgresql-13:1-7  -e POSTGRESQL_USER=redhat  -e POSTGRESQL_PASSWORD=redhat123  -e POSTGRESQL_DATABASE=persistentdb
+--> Found container image cafc055 (4 months old) from registry.redhat.io for "registry.redhat.io/rhel8/postgresql-13:1-7"
+
+    PostgreSQL 13 
+    ------------- 
+    PostgreSQL is an advanced Object-Relational database management system (DBMS). The image contains the client and server programs that you'll need to create, run, maintain and access a PostgreSQL DBMS server.
+
+    Tags: database, postgresql, postgresql13, postgresql-13
+
+    * An image stream tag will be created as "postgresql-persistent2:1-7" that will track this image
+
+--> Creating resources ...
+    imagestream.image.openshift.io "postgresql-persistent2" created
+    deployment.apps "postgresql-persistent2" created
+    service "postgresql-persistent2" created
+--> Success
+    Application is not exposed. You can expose services to the outside world by executing one or more of the commands below:
+     'oc expose service/postgresql-persistent2' 
+    Run 'oc status' to view your app.
+[student@workstation install-storage]$ ./check_data.sh
+Checking characters table
+ERROR: 'characters' table does not exist
+[student@workstation install-storage]$ oc set volumes  deployment/postgresql-persistent2  --add --name postgresql-storage --type pvc  --claim-name postgresql-storage --mount-path /var/lib/pgsql
+deployment.apps/postgresql-persistent2 volume updated
+[student@workstation install-storage]$ ./check_data.sh
+Checking characters table
+ id |          name           |           nationality            
+----+-------------------------+----------------------------------
+  1 | Wolfgang Amadeus Mozart | Prince-Archbishopric of Salzburg
+  2 | Ludwig van Beethoven    | Bonn, Germany
+  3 | Johann Sebastian Bach   | Eisenach, Germany
+  4 | José Pablo Moncayo     | Guadalajara, México
+  5 | Niccolò Paganini       | Genoa, Italy
+(5 rows)
+
+[student@workstation install-storage]$ oc delete all -l app=postgresql-persistent2
+service "postgresql-persistent2" deleted
+deployment.apps "postgresql-persistent2" deleted
+imagestream.image.openshift.io "postgresql-persistent2" deleted
+[student@workstation install-storage]$ oc delete pvc/postgresql-storage
+persistentvolumeclaim "postgresql-storage" deleted
+[student@workstation install-storage]$ cd ~
+[student@workstation ~]$ lab install-storage finish
+
+Completing Guided Exercise: Introducing OpenShift Dynamic Storage
+
+ · Delete OpenShift project 'install-storage'..................  SUCCESS
+ · Wait for project 'install-storage' to be gone...............  SUCCESS
+ · Remove exercise files.......................................  SUCCESS
+
+Please use start if you wish to do the exercise again.
+
+[student@workstation ~]$ ls -lrth
+total 4.0K
+drwxrwxr-x. 3 student student  23 Jul 13 09:01 venv
+drwxr-xr-x. 2 student student   6 Sep 19 21:58 Videos
+drwxr-xr-x. 2 student student   6 Sep 19 21:58 Templates
+drwxr-xr-x. 2 student student   6 Sep 19 21:58 Public
+drwxr-xr-x. 2 student student   6 Sep 19 21:58 Pictures
+drwxr-xr-x. 2 student student   6 Sep 19 21:58 Music
+drwxr-xr-x. 2 student student   6 Sep 19 21:58 Downloads
+drwxr-xr-x. 2 student student   6 Sep 19 21:58 Documents
+drwxr-xr-x. 2 student student   6 Sep 19 21:58 Desktop
+-rw-rw-r--. 1 student student  41 Sep 19 22:37 token
+drwxr-xr-x. 4 student student  35 Sep 20 06:12 DO180
+drwxrwxr-x. 2 student student   6 Sep 20 07:27 local
+drwxrwxr-x. 9 student student 143 Sep 22 05:32 DO180-apps
+drwxr-xr-x. 3 student student  18 Sep 23 02:44 DO280
+[student@workstation ~]$ find / -name install-storage
+find: ‘/boot/efi’: Permission denied
+find: ‘/boot/grub2’: Permission denied
+find: ‘/boot/loader/entries’: Permission denied
+find: ‘/proc/tty/driver’: Permission denied
+find: ‘/proc/1/task/1/fd’: Permission denied
+find: ‘/proc/1/task/1/fdinfo’: Permission denied
+find: ‘/proc/1/task/1/ns’: Permission denied
+find: ‘/proc/1/fd’: Permission denied
+find: ‘/proc/1/map_files’: Permission denied
+find: ‘/proc/1/fdinfo’: Permission denied
+find: ‘/proc/1/ns’: Permission denied
+find: ‘/proc/2/task/2/fd’: Permission denied
+find: ‘/proc/2/task/2/fdinfo’: Permission denied
+find: ‘/proc/2/task/2/ns’: Permission denied
+find: ‘/proc/2/fd’: Permission denied
+find: ‘/proc/2/map_files’: Permission denied
+find: ‘/proc/2/fdinfo’: Permission denied
+find: ‘/proc/2/ns’: Permission denied
+find: ‘/proc/3/task/3/fd’: Permission denied
+find: ‘/proc/3/task/3/fdinfo’: Permission denied
+find: ‘/proc/3/task/3/ns’: Permission denied
+find: ‘/proc/3/fd’: Permission denied
+find: ‘/proc/3/map_files’: Permission denied
+find: ‘/proc/3/fdinfo’: Permission denied
+find: ‘/proc/3/ns’: Permission denied
+find: ‘/proc/4/task/4/fd’: Permission denied
+find: ‘/proc/4/task/4/fdinfo’: Permission denied
+find: ‘/proc/4/task/4/ns’: Permission denied
+find: ‘/proc/4/fd’: Permission denied
+find: ‘/proc/4/map_files’: Permission denied
+find: ‘/proc/4/fdinfo’: Permission denied
+find: ‘/proc/4/ns’: Permission denied
+find: ‘/proc/6/task/6/fd’: Permission denied
+find: ‘/proc/6/task/6/fdinfo’: Permission denied
+find: ‘/proc/6/task/6/ns’: Permission denied
+find: ‘/proc/6/fd’: Permission denied
+find: ‘/proc/6/map_files’: Permission denied
+find: ‘/proc/6/fdinfo’: Permission denied
+find: ‘/proc/6/ns’: Permission denied
+find: ‘/proc/8/task/8/fd’: Permission denied
+find: ‘/proc/8/task/8/fdinfo’: Permission denied
+find: ‘/proc/8/task/8/ns’: Permission denied
+find: ‘/proc/8/fd’: Permission denied
+find: ‘/proc/8/map_files’: Permission denied
+find: ‘/proc/8/fdinfo’: Permission denied
+find: ‘/proc/8/ns’: Permission denied
+find: ‘/proc/9/task/9/fd’: Permission denied
+find: ‘/proc/9/task/9/fdinfo’: Permission denied
+find: ‘/proc/9/task/9/ns’: Permission denied
+find: ‘/proc/9/fd’: Permission denied
+find: ‘/proc/9/map_files’: Permission denied
+find: ‘/proc/9/fdinfo’: Permission denied
+find: ‘/proc/9/ns’: Permission denied
+find: ‘/proc/10/task/10/fd’: Permission denied
+find: ‘/proc/10/task/10/fdinfo’: Permission denied
+find: ‘/proc/10/task/10/ns’: Permission denied
+find: ‘/proc/10/fd’: Permission denied
+find: ‘/proc/10/map_files’: Permission denied
+find: ‘/proc/10/fdinfo’: Permission denied
+find: ‘/proc/10/ns’: Permission denied
+find: ‘/proc/11/task/11/fd’: Permission denied
+find: ‘/proc/11/task/11/fdinfo’: Permission denied
+find: ‘/proc/11/task/11/ns’: Permission denied
+find: ‘/proc/11/fd’: Permission denied
+find: ‘/proc/11/map_files’: Permission denied
+find: ‘/proc/11/fdinfo’: Permission denied
+find: ‘/proc/11/ns’: Permission denied
+find: ‘/proc/12/task/12/fd’: Permission denied
+find: ‘/proc/12/task/12/fdinfo’: Permission denied
+find: ‘/proc/12/task/12/ns’: Permission denied
+find: ‘/proc/12/fd’: Permission denied
+find: ‘/proc/12/map_files’: Permission denied
+find: ‘/proc/12/fdinfo’: Permission denied
+find: ‘/proc/12/ns’: Permission denied
+find: ‘/proc/13/task/13/fd’: Permission denied
+find: ‘/proc/13/task/13/fdinfo’: Permission denied
+find: ‘/proc/13/task/13/ns’: Permission denied
+find: ‘/proc/13/fd’: Permission denied
+find: ‘/proc/13/map_files’: Permission denied
+find: ‘/proc/13/fdinfo’: Permission denied
+find: ‘/proc/13/ns’: Permission denied
+find: ‘/proc/14/task/14/fd’: Permission denied
+find: ‘/proc/14/task/14/fdinfo’: Permission denied
+find: ‘/proc/14/task/14/ns’: Permission denied
+find: ‘/proc/14/fd’: Permission denied
+find: ‘/proc/14/map_files’: Permission denied
+find: ‘/proc/14/fdinfo’: Permission denied
+find: ‘/proc/14/ns’: Permission denied
+find: ‘/proc/15/task/15/fd’: Permission denied
+find: ‘/proc/15/task/15/fdinfo’: Permission denied
+find: ‘/proc/15/task/15/ns’: Permission denied
+find: ‘/proc/15/fd’: Permission denied
+find: ‘/proc/15/map_files’: Permission denied
+find: ‘/proc/15/fdinfo’: Permission denied
+find: ‘/proc/15/ns’: Permission denied
+find: ‘/proc/16/task/16/fd’: Permission denied
+find: ‘/proc/16/task/16/fdinfo’: Permission denied
+find: ‘/proc/16/task/16/ns’: Permission denied
+find: ‘/proc/16/fd’: Permission denied
+find: ‘/proc/16/map_files’: Permission denied
+find: ‘/proc/16/fdinfo’: Permission denied
+find: ‘/proc/16/ns’: Permission denied
+find: ‘/proc/17/task/17/fd’: Permission denied
+find: ‘/proc/17/task/17/fdinfo’: Permission denied
+find: ‘/proc/17/task/17/ns’: Permission denied
+find: ‘/proc/17/fd’: Permission denied
+find: ‘/proc/17/map_files’: Permission denied
+find: ‘/proc/17/fdinfo’: Permission denied
+find: ‘/proc/17/ns’: Permission denied
+find: ‘/proc/19/task/19/fd’: Permission denied
+find: ‘/proc/19/task/19/fdinfo’: Permission denied
+find: ‘/proc/19/task/19/ns’: Permission denied
+find: ‘/proc/19/fd’: Permission denied
+find: ‘/proc/19/map_files’: Permission denied
+find: ‘/proc/19/fdinfo’: Permission denied
+find: ‘/proc/19/ns’: Permission denied
+find: ‘/proc/21/task/21/fd’: Permission denied
+find: ‘/proc/21/task/21/fdinfo’: Permission denied
+find: ‘/proc/21/task/21/ns’: Permission denied
+find: ‘/proc/21/fd’: Permission denied
+find: ‘/proc/21/map_files’: Permission denied
+find: ‘/proc/21/fdinfo’: Permission denied
+find: ‘/proc/21/ns’: Permission denied
+find: ‘/proc/22/task/22/fd’: Permission denied
+find: ‘/proc/22/task/22/fdinfo’: Permission denied
+find: ‘/proc/22/task/22/ns’: Permission denied
+find: ‘/proc/22/fd’: Permission denied
+find: ‘/proc/22/map_files’: Permission denied
+find: ‘/proc/22/fdinfo’: Permission denied
+find: ‘/proc/22/ns’: Permission denied
+find: ‘/proc/23/task/23/fd’: Permission denied
+find: ‘/proc/23/task/23/fdinfo’: Permission denied
+find: ‘/proc/23/task/23/ns’: Permission denied
+find: ‘/proc/23/fd’: Permission denied
+find: ‘/proc/23/map_files’: Permission denied
+find: ‘/proc/23/fdinfo’: Permission denied
+find: ‘/proc/23/ns’: Permission denied
+find: ‘/proc/25/task/25/fd’: Permission denied
+find: ‘/proc/25/task/25/fdinfo’: Permission denied
+find: ‘/proc/25/task/25/ns’: Permission denied
+find: ‘/proc/25/fd’: Permission denied
+find: ‘/proc/25/map_files’: Permission denied
+find: ‘/proc/25/fdinfo’: Permission denied
+find: ‘/proc/25/ns’: Permission denied
+find: ‘/proc/26/task/26/fd’: Permission denied
+find: ‘/proc/26/task/26/fdinfo’: Permission denied
+find: ‘/proc/26/task/26/ns’: Permission denied
+find: ‘/proc/26/fd’: Permission denied
+find: ‘/proc/26/map_files’: Permission denied
+find: ‘/proc/26/fdinfo’: Permission denied
+find: ‘/proc/26/ns’: Permission denied
+find: ‘/proc/27/task/27/fd’: Permission denied
+find: ‘/proc/27/task/27/fdinfo’: Permission denied
+find: ‘/proc/27/task/27/ns’: Permission denied
+find: ‘/proc/27/fd’: Permission denied
+find: ‘/proc/27/map_files’: Permission denied
+find: ‘/proc/27/fdinfo’: Permission denied
+find: ‘/proc/27/ns’: Permission denied
+find: ‘/proc/28/task/28/fd’: Permission denied
+find: ‘/proc/28/task/28/fdinfo’: Permission denied
+find: ‘/proc/28/task/28/ns’: Permission denied
+find: ‘/proc/28/fd’: Permission denied
+find: ‘/proc/28/map_files’: Permission denied
+find: ‘/proc/28/fdinfo’: Permission denied
+find: ‘/proc/28/ns’: Permission denied
+find: ‘/proc/29/task/29/fd’: Permission denied
+find: ‘/proc/29/task/29/fdinfo’: Permission denied
+find: ‘/proc/29/task/29/ns’: Permission denied
+find: ‘/proc/29/fd’: Permission denied
+find: ‘/proc/29/map_files’: Permission denied
+find: ‘/proc/29/fdinfo’: Permission denied
+find: ‘/proc/29/ns’: Permission denied
+find: ‘/proc/30/task/30/fd’: Permission denied
+find: ‘/proc/30/task/30/fdinfo’: Permission denied
+find: ‘/proc/30/task/30/ns’: Permission denied
+find: ‘/proc/30/fd’: Permission denied
+find: ‘/proc/30/map_files’: Permission denied
+find: ‘/proc/30/fdinfo’: Permission denied
+find: ‘/proc/30/ns’: Permission denied
+find: ‘/proc/31/task/31/fd’: Permission denied
+find: ‘/proc/31/task/31/fdinfo’: Permission denied
+find: ‘/proc/31/task/31/ns’: Permission denied
+find: ‘/proc/31/fd’: Permission denied
+find: ‘/proc/31/map_files’: Permission denied
+find: ‘/proc/31/fdinfo’: Permission denied
+find: ‘/proc/31/ns’: Permission denied
+find: ‘/proc/32/task/32/fd’: Permission denied
+find: ‘/proc/32/task/32/fdinfo’: Permission denied
+find: ‘/proc/32/task/32/ns’: Permission denied
+find: ‘/proc/32/fd’: Permission denied
+find: ‘/proc/32/map_files’: Permission denied
+find: ‘/proc/32/fdinfo’: Permission denied
+find: ‘/proc/32/ns’: Permission denied
+find: ‘/proc/33/task/33/fd’: Permission denied
+find: ‘/proc/33/task/33/fdinfo’: Permission denied
+find: ‘/proc/33/task/33/ns’: Permission denied
+find: ‘/proc/33/fd’: Permission denied
+find: ‘/proc/33/map_files’: Permission denied
+find: ‘/proc/33/fdinfo’: Permission denied
+find: ‘/proc/33/ns’: Permission denied
+find: ‘/proc/34/task/34/fd’: Permission denied
+find: ‘/proc/34/task/34/fdinfo’: Permission denied
+find: ‘/proc/34/task/34/ns’: Permission denied
+find: ‘/proc/34/fd’: Permission denied
+find: ‘/proc/34/map_files’: Permission denied
+find: ‘/proc/34/fdinfo’: Permission denied
+find: ‘/proc/34/ns’: Permission denied
+find: ‘/proc/35/task/35/fd’: Permission denied
+find: ‘/proc/35/task/35/fdinfo’: Permission denied
+find: ‘/proc/35/task/35/ns’: Permission denied
+find: ‘/proc/35/fd’: Permission denied
+find: ‘/proc/35/map_files’: Permission denied
+find: ‘/proc/35/fdinfo’: Permission denied
+find: ‘/proc/35/ns’: Permission denied
+find: ‘/proc/36/task/36/fd’: Permission denied
+find: ‘/proc/36/task/36/fdinfo’: Permission denied
+find: ‘/proc/36/task/36/ns’: Permission denied
+find: ‘/proc/36/fd’: Permission denied
+find: ‘/proc/36/map_files’: Permission denied
+find: ‘/proc/36/fdinfo’: Permission denied
+find: ‘/proc/36/ns’: Permission denied
+find: ‘/proc/37/task/37/fd’: Permission denied
+find: ‘/proc/37/task/37/fdinfo’: Permission denied
+find: ‘/proc/37/task/37/ns’: Permission denied
+find: ‘/proc/37/fd’: Permission denied
+find: ‘/proc/37/map_files’: Permission denied
+find: ‘/proc/37/fdinfo’: Permission denied
+find: ‘/proc/37/ns’: Permission denied
+find: ‘/proc/61/task/61/fd’: Permission denied
+find: ‘/proc/61/task/61/fdinfo’: Permission denied
+find: ‘/proc/61/task/61/ns’: Permission denied
+find: ‘/proc/61/fd’: Permission denied
+find: ‘/proc/61/map_files’: Permission denied
+find: ‘/proc/61/fdinfo’: Permission denied
+find: ‘/proc/61/ns’: Permission denied
+find: ‘/proc/154/task/154/fd’: Permission denied
+find: ‘/proc/154/task/154/fdinfo’: Permission denied
+find: ‘/proc/154/task/154/ns’: Permission denied
+find: ‘/proc/154/fd’: Permission denied
+find: ‘/proc/154/map_files’: Permission denied
+find: ‘/proc/154/fdinfo’: Permission denied
+find: ‘/proc/154/ns’: Permission denied
+find: ‘/proc/155/task/155/fd’: Permission denied
+find: ‘/proc/155/task/155/fdinfo’: Permission denied
+find: ‘/proc/155/task/155/ns’: Permission denied
+find: ‘/proc/155/fd’: Permission denied
+find: ‘/proc/155/map_files’: Permission denied
+find: ‘/proc/155/fdinfo’: Permission denied
+find: ‘/proc/155/ns’: Permission denied
+find: ‘/proc/156/task/156/fd’: Permission denied
+find: ‘/proc/156/task/156/fdinfo’: Permission denied
+find: ‘/proc/156/task/156/ns’: Permission denied
+find: ‘/proc/156/fd’: Permission denied
+find: ‘/proc/156/map_files’: Permission denied
+find: ‘/proc/156/fdinfo’: Permission denied
+find: ‘/proc/156/ns’: Permission denied
+find: ‘/proc/157/task/157/fd’: Permission denied
+find: ‘/proc/157/task/157/fdinfo’: Permission denied
+find: ‘/proc/157/task/157/ns’: Permission denied
+find: ‘/proc/157/fd’: Permission denied
+find: ‘/proc/157/map_files’: Permission denied
+find: ‘/proc/157/fdinfo’: Permission denied
+find: ‘/proc/157/ns’: Permission denied
+find: ‘/proc/159/task/159/fd’: Permission denied
+find: ‘/proc/159/task/159/fdinfo’: Permission denied
+find: ‘/proc/159/task/159/ns’: Permission denied
+find: ‘/proc/159/fd’: Permission denied
+find: ‘/proc/159/map_files’: Permission denied
+find: ‘/proc/159/fdinfo’: Permission denied
+find: ‘/proc/159/ns’: Permission denied
+find: ‘/proc/160/task/160/fd’: Permission denied
+find: ‘/proc/160/task/160/fdinfo’: Permission denied
+find: ‘/proc/160/task/160/ns’: Permission denied
+find: ‘/proc/160/fd’: Permission denied
+find: ‘/proc/160/map_files’: Permission denied
+find: ‘/proc/160/fdinfo’: Permission denied
+find: ‘/proc/160/ns’: Permission denied
+find: ‘/proc/285/task/285/fd’: Permission denied
+find: ‘/proc/285/task/285/fdinfo’: Permission denied
+find: ‘/proc/285/task/285/ns’: Permission denied
+find: ‘/proc/285/fd’: Permission denied
+find: ‘/proc/285/map_files’: Permission denied
+find: ‘/proc/285/fdinfo’: Permission denied
+find: ‘/proc/285/ns’: Permission denied
+find: ‘/proc/390/task/390/fd’: Permission denied
+find: ‘/proc/390/task/390/fdinfo’: Permission denied
+find: ‘/proc/390/task/390/ns’: Permission denied
+find: ‘/proc/390/fd’: Permission denied
+find: ‘/proc/390/map_files’: Permission denied
+find: ‘/proc/390/fdinfo’: Permission denied
+find: ‘/proc/390/ns’: Permission denied
+find: ‘/proc/391/task/391/fd’: Permission denied
+find: ‘/proc/391/task/391/fdinfo’: Permission denied
+find: ‘/proc/391/task/391/ns’: Permission denied
+find: ‘/proc/391/fd’: Permission denied
+find: ‘/proc/391/map_files’: Permission denied
+find: ‘/proc/391/fdinfo’: Permission denied
+find: ‘/proc/391/ns’: Permission denied
+find: ‘/proc/392/task/392/fd’: Permission denied
+find: ‘/proc/392/task/392/fdinfo’: Permission denied
+find: ‘/proc/392/task/392/ns’: Permission denied
+find: ‘/proc/392/fd’: Permission denied
+find: ‘/proc/392/map_files’: Permission denied
+find: ‘/proc/392/fdinfo’: Permission denied
+find: ‘/proc/392/ns’: Permission denied
+find: ‘/proc/442/task/442/fd’: Permission denied
+find: ‘/proc/442/task/442/fdinfo’: Permission denied
+find: ‘/proc/442/task/442/ns’: Permission denied
+find: ‘/proc/442/fd’: Permission denied
+find: ‘/proc/442/map_files’: Permission denied
+find: ‘/proc/442/fdinfo’: Permission denied
+find: ‘/proc/442/ns’: Permission denied
+find: ‘/proc/443/task/443/fd’: Permission denied
+find: ‘/proc/443/task/443/fdinfo’: Permission denied
+find: ‘/proc/443/task/443/ns’: Permission denied
+find: ‘/proc/443/fd’: Permission denied
+find: ‘/proc/443/map_files’: Permission denied
+find: ‘/proc/443/fdinfo’: Permission denied
+find: ‘/proc/443/ns’: Permission denied
+find: ‘/proc/444/task/444/fd’: Permission denied
+find: ‘/proc/444/task/444/fdinfo’: Permission denied
+find: ‘/proc/444/task/444/ns’: Permission denied
+find: ‘/proc/444/fd’: Permission denied
+find: ‘/proc/444/map_files’: Permission denied
+find: ‘/proc/444/fdinfo’: Permission denied
+find: ‘/proc/444/ns’: Permission denied
+find: ‘/proc/553/task/553/fd’: Permission denied
+find: ‘/proc/553/task/553/fdinfo’: Permission denied
+find: ‘/proc/553/task/553/ns’: Permission denied
+find: ‘/proc/553/fd’: Permission denied
+find: ‘/proc/553/map_files’: Permission denied
+find: ‘/proc/553/fdinfo’: Permission denied
+find: ‘/proc/553/ns’: Permission denied
+find: ‘/proc/561/task/561/fd’: Permission denied
+find: ‘/proc/561/task/561/fdinfo’: Permission denied
+find: ‘/proc/561/task/561/ns’: Permission denied
+find: ‘/proc/561/fd’: Permission denied
+find: ‘/proc/561/map_files’: Permission denied
+find: ‘/proc/561/fdinfo’: Permission denied
+find: ‘/proc/561/ns’: Permission denied
+find: ‘/proc/562/task/562/fd’: Permission denied
+find: ‘/proc/562/task/562/fdinfo’: Permission denied
+find: ‘/proc/562/task/562/ns’: Permission denied
+find: ‘/proc/562/fd’: Permission denied
+find: ‘/proc/562/map_files’: Permission denied
+find: ‘/proc/562/fdinfo’: Permission denied
+find: ‘/proc/562/ns’: Permission denied
+find: ‘/proc/566/task/566/fd’: Permission denied
+find: ‘/proc/566/task/566/fdinfo’: Permission denied
+find: ‘/proc/566/task/566/ns’: Permission denied
+find: ‘/proc/566/fd’: Permission denied
+find: ‘/proc/566/map_files’: Permission denied
+find: ‘/proc/566/fdinfo’: Permission denied
+find: ‘/proc/566/ns’: Permission denied
+find: ‘/proc/567/task/567/fd’: Permission denied
+find: ‘/proc/567/task/567/fdinfo’: Permission denied
+find: ‘/proc/567/task/567/ns’: Permission denied
+find: ‘/proc/567/fd’: Permission denied
+find: ‘/proc/567/map_files’: Permission denied
+find: ‘/proc/567/fdinfo’: Permission denied
+find: ‘/proc/567/ns’: Permission denied
+find: ‘/proc/568/task/568/fd’: Permission denied
+find: ‘/proc/568/task/568/fdinfo’: Permission denied
+find: ‘/proc/568/task/568/ns’: Permission denied
+find: ‘/proc/568/fd’: Permission denied
+find: ‘/proc/568/map_files’: Permission denied
+find: ‘/proc/568/fdinfo’: Permission denied
+find: ‘/proc/568/ns’: Permission denied
+find: ‘/proc/582/task/582/fd’: Permission denied
+find: ‘/proc/582/task/582/fdinfo’: Permission denied
+find: ‘/proc/582/task/582/ns’: Permission denied
+find: ‘/proc/582/fd’: Permission denied
+find: ‘/proc/582/map_files’: Permission denied
+find: ‘/proc/582/fdinfo’: Permission denied
+find: ‘/proc/582/ns’: Permission denied
+find: ‘/proc/583/task/583/fd’: Permission denied
+find: ‘/proc/583/task/583/fdinfo’: Permission denied
+find: ‘/proc/583/task/583/ns’: Permission denied
+find: ‘/proc/583/fd’: Permission denied
+find: ‘/proc/583/map_files’: Permission denied
+find: ‘/proc/583/fdinfo’: Permission denied
+find: ‘/proc/583/ns’: Permission denied
+find: ‘/proc/624/task/624/fd’: Permission denied
+find: ‘/proc/624/task/624/fdinfo’: Permission denied
+find: ‘/proc/624/task/624/ns’: Permission denied
+find: ‘/proc/624/fd’: Permission denied
+find: ‘/proc/624/map_files’: Permission denied
+find: ‘/proc/624/fdinfo’: Permission denied
+find: ‘/proc/624/ns’: Permission denied
+find: ‘/proc/625/task/625/fd’: Permission denied
+find: ‘/proc/625/task/625/fdinfo’: Permission denied
+find: ‘/proc/625/task/625/ns’: Permission denied
+find: ‘/proc/625/fd’: Permission denied
+find: ‘/proc/625/map_files’: Permission denied
+find: ‘/proc/625/fdinfo’: Permission denied
+find: ‘/proc/625/ns’: Permission denied
+find: ‘/proc/626/task/626/fd’: Permission denied
+find: ‘/proc/626/task/626/fdinfo’: Permission denied
+find: ‘/proc/626/task/626/ns’: Permission denied
+find: ‘/proc/626/fd’: Permission denied
+find: ‘/proc/626/map_files’: Permission denied
+find: ‘/proc/626/fdinfo’: Permission denied
+find: ‘/proc/626/ns’: Permission denied
+find: ‘/proc/627/task/627/fd’: Permission denied
+find: ‘/proc/627/task/627/fdinfo’: Permission denied
+find: ‘/proc/627/task/627/ns’: Permission denied
+find: ‘/proc/627/fd’: Permission denied
+find: ‘/proc/627/map_files’: Permission denied
+find: ‘/proc/627/fdinfo’: Permission denied
+find: ‘/proc/627/ns’: Permission denied
+find: ‘/proc/628/task/628/fd’: Permission denied
+find: ‘/proc/628/task/628/fdinfo’: Permission denied
+find: ‘/proc/628/task/628/ns’: Permission denied
+find: ‘/proc/628/fd’: Permission denied
+find: ‘/proc/628/map_files’: Permission denied
+find: ‘/proc/628/fdinfo’: Permission denied
+find: ‘/proc/628/ns’: Permission denied
+find: ‘/proc/629/task/629/fd’: Permission denied
+find: ‘/proc/629/task/629/fdinfo’: Permission denied
+find: ‘/proc/629/task/629/ns’: Permission denied
+find: ‘/proc/629/fd’: Permission denied
+find: ‘/proc/629/map_files’: Permission denied
+find: ‘/proc/629/fdinfo’: Permission denied
+find: ‘/proc/629/ns’: Permission denied
+find: ‘/proc/630/task/630/fd’: Permission denied
+find: ‘/proc/630/task/630/fdinfo’: Permission denied
+find: ‘/proc/630/task/630/ns’: Permission denied
+find: ‘/proc/630/fd’: Permission denied
+find: ‘/proc/630/map_files’: Permission denied
+find: ‘/proc/630/fdinfo’: Permission denied
+find: ‘/proc/630/ns’: Permission denied
+find: ‘/proc/631/task/631/fd’: Permission denied
+find: ‘/proc/631/task/631/fdinfo’: Permission denied
+find: ‘/proc/631/task/631/ns’: Permission denied
+find: ‘/proc/631/fd’: Permission denied
+find: ‘/proc/631/map_files’: Permission denied
+find: ‘/proc/631/fdinfo’: Permission denied
+find: ‘/proc/631/ns’: Permission denied
+find: ‘/proc/632/task/632/fd’: Permission denied
+find: ‘/proc/632/task/632/fdinfo’: Permission denied
+find: ‘/proc/632/task/632/ns’: Permission denied
+find: ‘/proc/632/fd’: Permission denied
+find: ‘/proc/632/map_files’: Permission denied
+find: ‘/proc/632/fdinfo’: Permission denied
+find: ‘/proc/632/ns’: Permission denied
+find: ‘/proc/758/task/758/fd’: Permission denied
+find: ‘/proc/758/task/758/fdinfo’: Permission denied
+find: ‘/proc/758/task/758/ns’: Permission denied
+find: ‘/proc/758/fd’: Permission denied
+find: ‘/proc/758/map_files’: Permission denied
+find: ‘/proc/758/fdinfo’: Permission denied
+find: ‘/proc/758/ns’: Permission denied
+find: ‘/proc/797/task/797/fd’: Permission denied
+find: ‘/proc/797/task/797/fdinfo’: Permission denied
+find: ‘/proc/797/task/797/ns’: Permission denied
+find: ‘/proc/797/fd’: Permission denied
+find: ‘/proc/797/map_files’: Permission denied
+find: ‘/proc/797/fdinfo’: Permission denied
+find: ‘/proc/797/ns’: Permission denied
+find: ‘/proc/835/task/835/fd’: Permission denied
+find: ‘/proc/835/task/835/fdinfo’: Permission denied
+find: ‘/proc/835/task/835/ns’: Permission denied
+find: ‘/proc/835/fd’: Permission denied
+find: ‘/proc/835/map_files’: Permission denied
+find: ‘/proc/835/fdinfo’: Permission denied
+find: ‘/proc/835/ns’: Permission denied
+find: ‘/proc/844/task/844/fd’: Permission denied
+find: ‘/proc/844/task/844/fdinfo’: Permission denied
+find: ‘/proc/844/task/844/ns’: Permission denied
+find: ‘/proc/844/fd’: Permission denied
+find: ‘/proc/844/map_files’: Permission denied
+find: ‘/proc/844/fdinfo’: Permission denied
+find: ‘/proc/844/ns’: Permission denied
+find: ‘/proc/879/task/879/fd’: Permission denied
+find: ‘/proc/879/task/879/fdinfo’: Permission denied
+find: ‘/proc/879/task/879/ns’: Permission denied
+find: ‘/proc/879/fd’: Permission denied
+find: ‘/proc/879/map_files’: Permission denied
+find: ‘/proc/879/fdinfo’: Permission denied
+find: ‘/proc/879/ns’: Permission denied
+find: ‘/proc/887/task/887/fd’: Permission denied
+find: ‘/proc/887/task/887/fdinfo’: Permission denied
+find: ‘/proc/887/task/887/ns’: Permission denied
+find: ‘/proc/887/fd’: Permission denied
+find: ‘/proc/887/map_files’: Permission denied
+find: ‘/proc/887/fdinfo’: Permission denied
+find: ‘/proc/887/ns’: Permission denied
+find: ‘/proc/889/task/889/fd’: Permission denied
+find: ‘/proc/889/task/889/fdinfo’: Permission denied
+find: ‘/proc/889/task/889/ns’: Permission denied
+find: ‘/proc/889/fd’: Permission denied
+find: ‘/proc/889/map_files’: Permission denied
+find: ‘/proc/889/fdinfo’: Permission denied
+find: ‘/proc/889/ns’: Permission denied
+find: ‘/proc/893/task/893/fd’: Permission denied
+find: ‘/proc/893/task/893/fdinfo’: Permission denied
+find: ‘/proc/893/task/893/ns’: Permission denied
+find: ‘/proc/893/fd’: Permission denied
+find: ‘/proc/893/map_files’: Permission denied
+find: ‘/proc/893/fdinfo’: Permission denied
+find: ‘/proc/893/ns’: Permission denied
+find: ‘/proc/894/task/894/fd’: Permission denied
+find: ‘/proc/894/task/894/fdinfo’: Permission denied
+find: ‘/proc/894/task/894/ns’: Permission denied
+find: ‘/proc/894/fd’: Permission denied
+find: ‘/proc/894/map_files’: Permission denied
+find: ‘/proc/894/fdinfo’: Permission denied
+find: ‘/proc/894/ns’: Permission denied
+find: ‘/proc/901/task/901/fd’: Permission denied
+find: ‘/proc/901/task/901/fdinfo’: Permission denied
+find: ‘/proc/901/task/901/ns’: Permission denied
+find: ‘/proc/901/fd’: Permission denied
+find: ‘/proc/901/map_files’: Permission denied
+find: ‘/proc/901/fdinfo’: Permission denied
+find: ‘/proc/901/ns’: Permission denied
+find: ‘/proc/915/task/915/fd’: Permission denied
+find: ‘/proc/915/task/915/fdinfo’: Permission denied
+find: ‘/proc/915/task/915/ns’: Permission denied
+find: ‘/proc/915/fd’: Permission denied
+find: ‘/proc/915/map_files’: Permission denied
+find: ‘/proc/915/fdinfo’: Permission denied
+find: ‘/proc/915/ns’: Permission denied
+find: ‘/proc/916/task/916/fd’: Permission denied
+find: ‘/proc/916/task/916/fdinfo’: Permission denied
+find: ‘/proc/916/task/916/ns’: Permission denied
+find: ‘/proc/916/fd’: Permission denied
+find: ‘/proc/916/map_files’: Permission denied
+find: ‘/proc/916/fdinfo’: Permission denied
+find: ‘/proc/916/ns’: Permission denied
+find: ‘/proc/936/task/936/fd’: Permission denied
+find: ‘/proc/936/task/936/fdinfo’: Permission denied
+find: ‘/proc/936/task/936/ns’: Permission denied
+find: ‘/proc/936/fd’: Permission denied
+find: ‘/proc/936/map_files’: Permission denied
+find: ‘/proc/936/fdinfo’: Permission denied
+find: ‘/proc/936/ns’: Permission denied
+find: ‘/proc/943/task/943/fd’: Permission denied
+find: ‘/proc/943/task/943/fdinfo’: Permission denied
+find: ‘/proc/943/task/943/ns’: Permission denied
+find: ‘/proc/943/task/945/fd’: Permission denied
+find: ‘/proc/943/task/945/fdinfo’: Permission denied
+find: ‘/proc/943/task/945/ns’: Permission denied
+find: ‘/proc/943/task/950/fd’: Permission denied
+find: ‘/proc/943/task/950/fdinfo’: Permission denied
+find: ‘/proc/943/task/950/ns’: Permission denied
+find: ‘/proc/943/fd’: Permission denied
+find: ‘/proc/943/map_files’: Permission denied
+find: ‘/proc/943/fdinfo’: Permission denied
+find: ‘/proc/943/ns’: Permission denied
+find: ‘/proc/949/task/949/fd’: Permission denied
+find: ‘/proc/949/task/949/fdinfo’: Permission denied
+find: ‘/proc/949/task/949/ns’: Permission denied
+find: ‘/proc/949/fd’: Permission denied
+find: ‘/proc/949/map_files’: Permission denied
+find: ‘/proc/949/fdinfo’: Permission denied
+find: ‘/proc/949/ns’: Permission denied
+find: ‘/proc/985/task/985/fd’: Permission denied
+find: ‘/proc/985/task/985/fdinfo’: Permission denied
+find: ‘/proc/985/task/985/ns’: Permission denied
+find: ‘/proc/985/task/1050/fd’: Permission denied
+find: ‘/proc/985/task/1050/fdinfo’: Permission denied
+find: ‘/proc/985/task/1050/ns’: Permission denied
+find: ‘/proc/985/task/1051/fd’: Permission denied
+find: ‘/proc/985/task/1051/fdinfo’: Permission denied
+find: ‘/proc/985/task/1051/ns’: Permission denied
+find: ‘/proc/985/fd’: Permission denied
+find: ‘/proc/985/map_files’: Permission denied
+find: ‘/proc/985/fdinfo’: Permission denied
+find: ‘/proc/985/ns’: Permission denied
+find: ‘/proc/988/task/988/fd’: Permission denied
+find: ‘/proc/988/task/988/fdinfo’: Permission denied
+find: ‘/proc/988/task/988/ns’: Permission denied
+find: ‘/proc/988/task/1002/fd’: Permission denied
+find: ‘/proc/988/task/1002/fdinfo’: Permission denied
+find: ‘/proc/988/task/1002/ns’: Permission denied
+find: ‘/proc/988/fd’: Permission denied
+find: ‘/proc/988/map_files’: Permission denied
+find: ‘/proc/988/fdinfo’: Permission denied
+find: ‘/proc/988/ns’: Permission denied
+find: ‘/proc/989/task/989/fd’: Permission denied
+find: ‘/proc/989/task/989/fdinfo’: Permission denied
+find: ‘/proc/989/task/989/ns’: Permission denied
+find: ‘/proc/989/task/1034/fd’: Permission denied
+find: ‘/proc/989/task/1034/fdinfo’: Permission denied
+find: ‘/proc/989/task/1034/ns’: Permission denied
+find: ‘/proc/989/task/1052/fd’: Permission denied
+find: ‘/proc/989/task/1052/fdinfo’: Permission denied
+find: ‘/proc/989/task/1052/ns’: Permission denied
+find: ‘/proc/989/task/1079/fd’: Permission denied
+find: ‘/proc/989/task/1079/fdinfo’: Permission denied
+find: ‘/proc/989/task/1079/ns’: Permission denied
+find: ‘/proc/989/task/1151/fd’: Permission denied
+find: ‘/proc/989/task/1151/fdinfo’: Permission denied
+find: ‘/proc/989/task/1151/ns’: Permission denied
+find: ‘/proc/989/fd’: Permission denied
+find: ‘/proc/989/map_files’: Permission denied
+find: ‘/proc/989/fdinfo’: Permission denied
+find: ‘/proc/989/ns’: Permission denied
+find: ‘/proc/990/task/990/fd’: Permission denied
+find: ‘/proc/990/task/990/fdinfo’: Permission denied
+find: ‘/proc/990/task/990/ns’: Permission denied
+find: ‘/proc/990/fd’: Permission denied
+find: ‘/proc/990/map_files’: Permission denied
+find: ‘/proc/990/fdinfo’: Permission denied
+find: ‘/proc/990/ns’: Permission denied
+find: ‘/proc/991/task/991/fd’: Permission denied
+find: ‘/proc/991/task/991/fdinfo’: Permission denied
+find: ‘/proc/991/task/991/ns’: Permission denied
+find: ‘/proc/991/fd’: Permission denied
+find: ‘/proc/991/map_files’: Permission denied
+find: ‘/proc/991/fdinfo’: Permission denied
+find: ‘/proc/991/ns’: Permission denied
+find: ‘/proc/993/task/993/fd’: Permission denied
+find: ‘/proc/993/task/993/fdinfo’: Permission denied
+find: ‘/proc/993/task/993/ns’: Permission denied
+find: ‘/proc/993/task/1059/fd’: Permission denied
+find: ‘/proc/993/task/1059/fdinfo’: Permission denied
+find: ‘/proc/993/task/1059/ns’: Permission denied
+find: ‘/proc/993/task/1060/fd’: Permission denied
+find: ‘/proc/993/task/1060/fdinfo’: Permission denied
+find: ‘/proc/993/task/1060/ns’: Permission denied
+find: ‘/proc/993/task/1061/fd’: Permission denied
+find: ‘/proc/993/task/1061/fdinfo’: Permission denied
+find: ‘/proc/993/task/1061/ns’: Permission denied
+find: ‘/proc/993/task/1062/fd’: Permission denied
+find: ‘/proc/993/task/1062/fdinfo’: Permission denied
+find: ‘/proc/993/task/1062/ns’: Permission denied
+find: ‘/proc/993/task/1073/fd’: Permission denied
+find: ‘/proc/993/task/1073/fdinfo’: Permission denied
+find: ‘/proc/993/task/1073/ns’: Permission denied
+find: ‘/proc/993/fd’: Permission denied
+find: ‘/proc/993/map_files’: Permission denied
+find: ‘/proc/993/fdinfo’: Permission denied
+find: ‘/proc/993/ns’: Permission denied
+find: ‘/proc/996/task/996/fd’: Permission denied
+find: ‘/proc/996/task/996/fdinfo’: Permission denied
+find: ‘/proc/996/task/996/ns’: Permission denied
+find: ‘/proc/996/task/1004/fd’: Permission denied
+find: ‘/proc/996/task/1004/fdinfo’: Permission denied
+find: ‘/proc/996/task/1004/ns’: Permission denied
+find: ‘/proc/996/task/1005/fd’: Permission denied
+find: ‘/proc/996/task/1005/fdinfo’: Permission denied
+find: ‘/proc/996/task/1005/ns’: Permission denied
+find: ‘/proc/996/task/1006/fd’: Permission denied
+find: ‘/proc/996/task/1006/fdinfo’: Permission denied
+find: ‘/proc/996/task/1006/ns’: Permission denied
+find: ‘/proc/996/task/1007/fd’: Permission denied
+find: ‘/proc/996/task/1007/fdinfo’: Permission denied
+find: ‘/proc/996/task/1007/ns’: Permission denied
+find: ‘/proc/996/task/1008/fd’: Permission denied
+find: ‘/proc/996/task/1008/fdinfo’: Permission denied
+find: ‘/proc/996/task/1008/ns’: Permission denied
+find: ‘/proc/996/fd’: Permission denied
+find: ‘/proc/996/map_files’: Permission denied
+find: ‘/proc/996/fdinfo’: Permission denied
+find: ‘/proc/996/ns’: Permission denied
+find: ‘/proc/997/task/997/fd’: Permission denied
+find: ‘/proc/997/task/997/fdinfo’: Permission denied
+find: ‘/proc/997/task/997/ns’: Permission denied
+find: ‘/proc/997/task/1026/fd’: Permission denied
+find: ‘/proc/997/task/1026/fdinfo’: Permission denied
+find: ‘/proc/997/task/1026/ns’: Permission denied
+find: ‘/proc/997/task/1053/fd’: Permission denied
+find: ‘/proc/997/task/1053/fdinfo’: Permission denied
+find: ‘/proc/997/task/1053/ns’: Permission denied
+find: ‘/proc/997/fd’: Permission denied
+find: ‘/proc/997/map_files’: Permission denied
+find: ‘/proc/997/fdinfo’: Permission denied
+find: ‘/proc/997/ns’: Permission denied
+find: ‘/proc/998/task/998/fd’: Permission denied
+find: ‘/proc/998/task/998/fdinfo’: Permission denied
+find: ‘/proc/998/task/998/ns’: Permission denied
+find: ‘/proc/998/fd’: Permission denied
+find: ‘/proc/998/map_files’: Permission denied
+find: ‘/proc/998/fdinfo’: Permission denied
+find: ‘/proc/998/ns’: Permission denied
+find: ‘/proc/1010/task/1010/fd’: Permission denied
+find: ‘/proc/1010/task/1010/fdinfo’: Permission denied
+find: ‘/proc/1010/task/1010/ns’: Permission denied
+find: ‘/proc/1010/fd’: Permission denied
+find: ‘/proc/1010/map_files’: Permission denied
+find: ‘/proc/1010/fdinfo’: Permission denied
+find: ‘/proc/1010/ns’: Permission denied
+find: ‘/proc/1011/task/1011/fd’: Permission denied
+find: ‘/proc/1011/task/1011/fdinfo’: Permission denied
+find: ‘/proc/1011/task/1011/ns’: Permission denied
+find: ‘/proc/1011/fd’: Permission denied
+find: ‘/proc/1011/map_files’: Permission denied
+find: ‘/proc/1011/fdinfo’: Permission denied
+find: ‘/proc/1011/ns’: Permission denied
+find: ‘/proc/1012/task/1012/fd’: Permission denied
+find: ‘/proc/1012/task/1012/fdinfo’: Permission denied
+find: ‘/proc/1012/task/1012/ns’: Permission denied
+find: ‘/proc/1012/task/1049/fd’: Permission denied
+find: ‘/proc/1012/task/1049/fdinfo’: Permission denied
+find: ‘/proc/1012/task/1049/ns’: Permission denied
+find: ‘/proc/1012/fd’: Permission denied
+find: ‘/proc/1012/map_files’: Permission denied
+find: ‘/proc/1012/fdinfo’: Permission denied
+find: ‘/proc/1012/ns’: Permission denied
+find: ‘/proc/1016/task/1016/fd’: Permission denied
+find: ‘/proc/1016/task/1016/fdinfo’: Permission denied
+find: ‘/proc/1016/task/1016/ns’: Permission denied
+find: ‘/proc/1016/fd’: Permission denied
+find: ‘/proc/1016/map_files’: Permission denied
+find: ‘/proc/1016/fdinfo’: Permission denied
+find: ‘/proc/1016/ns’: Permission denied
+find: ‘/proc/1017/task/1017/fd’: Permission denied
+find: ‘/proc/1017/task/1017/fdinfo’: Permission denied
+find: ‘/proc/1017/task/1017/ns’: Permission denied
+find: ‘/proc/1017/fd’: Permission denied
+find: ‘/proc/1017/map_files’: Permission denied
+find: ‘/proc/1017/fdinfo’: Permission denied
+find: ‘/proc/1017/ns’: Permission denied
+find: ‘/proc/1031/task/1031/fd’: Permission denied
+find: ‘/proc/1031/task/1031/fdinfo’: Permission denied
+find: ‘/proc/1031/task/1031/ns’: Permission denied
+find: ‘/proc/1031/task/1056/fd’: Permission denied
+find: ‘/proc/1031/task/1056/fdinfo’: Permission denied
+find: ‘/proc/1031/task/1056/ns’: Permission denied
+find: ‘/proc/1031/task/1058/fd’: Permission denied
+find: ‘/proc/1031/task/1058/fdinfo’: Permission denied
+find: ‘/proc/1031/task/1058/ns’: Permission denied
+find: ‘/proc/1031/fd’: Permission denied
+find: ‘/proc/1031/map_files’: Permission denied
+find: ‘/proc/1031/fdinfo’: Permission denied
+find: ‘/proc/1031/ns’: Permission denied
+find: ‘/proc/1038/task/1038/fd’: Permission denied
+find: ‘/proc/1038/task/1038/fdinfo’: Permission denied
+find: ‘/proc/1038/task/1038/ns’: Permission denied
+find: ‘/proc/1038/fd’: Permission denied
+find: ‘/proc/1038/map_files’: Permission denied
+find: ‘/proc/1038/fdinfo’: Permission denied
+find: ‘/proc/1038/ns’: Permission denied
+find: ‘/proc/1047/task/1047/fd’: Permission denied
+find: ‘/proc/1047/task/1047/fdinfo’: Permission denied
+find: ‘/proc/1047/task/1047/ns’: Permission denied
+find: ‘/proc/1047/fd’: Permission denied
+find: ‘/proc/1047/map_files’: Permission denied
+find: ‘/proc/1047/fdinfo’: Permission denied
+find: ‘/proc/1047/ns’: Permission denied
+find: ‘/proc/1054/task/1054/fd’: Permission denied
+find: ‘/proc/1054/task/1054/fdinfo’: Permission denied
+find: ‘/proc/1054/task/1054/ns’: Permission denied
+find: ‘/proc/1054/fd’: Permission denied
+find: ‘/proc/1054/map_files’: Permission denied
+find: ‘/proc/1054/fdinfo’: Permission denied
+find: ‘/proc/1054/ns’: Permission denied
+find: ‘/proc/1057/task/1057/fd’: Permission denied
+find: ‘/proc/1057/task/1057/fdinfo’: Permission denied
+find: ‘/proc/1057/task/1057/ns’: Permission denied
+find: ‘/proc/1057/fd’: Permission denied
+find: ‘/proc/1057/map_files’: Permission denied
+find: ‘/proc/1057/fdinfo’: Permission denied
+find: ‘/proc/1057/ns’: Permission denied
+find: ‘/proc/1065/task/1065/fd’: Permission denied
+find: ‘/proc/1065/task/1065/fdinfo’: Permission denied
+find: ‘/proc/1065/task/1065/ns’: Permission denied
+find: ‘/proc/1065/fd’: Permission denied
+find: ‘/proc/1065/map_files’: Permission denied
+find: ‘/proc/1065/fdinfo’: Permission denied
+find: ‘/proc/1065/ns’: Permission denied
+find: ‘/proc/1066/task/1066/fd’: Permission denied
+find: ‘/proc/1066/task/1066/fdinfo’: Permission denied
+find: ‘/proc/1066/task/1066/ns’: Permission denied
+find: ‘/proc/1066/fd’: Permission denied
+find: ‘/proc/1066/map_files’: Permission denied
+find: ‘/proc/1066/fdinfo’: Permission denied
+find: ‘/proc/1066/ns’: Permission denied
+find: ‘/proc/1077/task/1077/fd’: Permission denied
+find: ‘/proc/1077/task/1077/fdinfo’: Permission denied
+find: ‘/proc/1077/task/1077/ns’: Permission denied
+find: ‘/proc/1077/fd’: Permission denied
+find: ‘/proc/1077/map_files’: Permission denied
+find: ‘/proc/1077/fdinfo’: Permission denied
+find: ‘/proc/1077/ns’: Permission denied
+find: ‘/proc/1078/task/1078/fd’: Permission denied
+find: ‘/proc/1078/task/1078/fdinfo’: Permission denied
+find: ‘/proc/1078/task/1078/ns’: Permission denied
+find: ‘/proc/1078/task/1277/fd’: Permission denied
+find: ‘/proc/1078/task/1277/fdinfo’: Permission denied
+find: ‘/proc/1078/task/1277/ns’: Permission denied
+find: ‘/proc/1078/fd’: Permission denied
+find: ‘/proc/1078/map_files’: Permission denied
+find: ‘/proc/1078/fdinfo’: Permission denied
+find: ‘/proc/1078/ns’: Permission denied
+find: ‘/proc/1138/task/1138/fd’: Permission denied
+find: ‘/proc/1138/task/1138/fdinfo’: Permission denied
+find: ‘/proc/1138/task/1138/ns’: Permission denied
+find: ‘/proc/1138/task/1140/fd’: Permission denied
+find: ‘/proc/1138/task/1140/fdinfo’: Permission denied
+find: ‘/proc/1138/task/1140/ns’: Permission denied
+find: ‘/proc/1138/task/1142/fd’: Permission denied
+find: ‘/proc/1138/task/1142/fdinfo’: Permission denied
+find: ‘/proc/1138/task/1142/ns’: Permission denied
+find: ‘/proc/1138/fd’: Permission denied
+find: ‘/proc/1138/map_files’: Permission denied
+find: ‘/proc/1138/fdinfo’: Permission denied
+find: ‘/proc/1138/ns’: Permission denied
+find: ‘/proc/1139/task/1139/fd’: Permission denied
+find: ‘/proc/1139/task/1139/fdinfo’: Permission denied
+find: ‘/proc/1139/task/1139/ns’: Permission denied
+find: ‘/proc/1139/fd’: Permission denied
+find: ‘/proc/1139/map_files’: Permission denied
+find: ‘/proc/1139/fdinfo’: Permission denied
+find: ‘/proc/1139/ns’: Permission denied
+find: ‘/proc/1162/task/1162/fd’: Permission denied
+find: ‘/proc/1162/task/1162/fdinfo’: Permission denied
+find: ‘/proc/1162/task/1162/ns’: Permission denied
+find: ‘/proc/1162/task/1167/fd’: Permission denied
+find: ‘/proc/1162/task/1167/fdinfo’: Permission denied
+find: ‘/proc/1162/task/1167/ns’: Permission denied
+find: ‘/proc/1162/task/1168/fd’: Permission denied
+find: ‘/proc/1162/task/1168/fdinfo’: Permission denied
+find: ‘/proc/1162/task/1168/ns’: Permission denied
+find: ‘/proc/1162/fd’: Permission denied
+find: ‘/proc/1162/map_files’: Permission denied
+find: ‘/proc/1162/fdinfo’: Permission denied
+find: ‘/proc/1162/ns’: Permission denied
+find: ‘/proc/1170/task/1170/fd’: Permission denied
+find: ‘/proc/1170/task/1170/fdinfo’: Permission denied
+find: ‘/proc/1170/task/1170/ns’: Permission denied
+find: ‘/proc/1170/fd’: Permission denied
+find: ‘/proc/1170/map_files’: Permission denied
+find: ‘/proc/1170/fdinfo’: Permission denied
+find: ‘/proc/1170/ns’: Permission denied
+find: ‘/proc/1173/task/1173/fd’: Permission denied
+find: ‘/proc/1173/task/1173/fdinfo’: Permission denied
+find: ‘/proc/1173/task/1173/ns’: Permission denied
+find: ‘/proc/1173/task/1229/fd’: Permission denied
+find: ‘/proc/1173/task/1229/fdinfo’: Permission denied
+find: ‘/proc/1173/task/1229/ns’: Permission denied
+find: ‘/proc/1173/task/1240/fd’: Permission denied
+find: ‘/proc/1173/task/1240/fdinfo’: Permission denied
+find: ‘/proc/1173/task/1240/ns’: Permission denied
+find: ‘/proc/1173/task/1243/fd’: Permission denied
+find: ‘/proc/1173/task/1243/fdinfo’: Permission denied
+find: ‘/proc/1173/task/1243/ns’: Permission denied
+find: ‘/proc/1173/fd’: Permission denied
+find: ‘/proc/1173/map_files’: Permission denied
+find: ‘/proc/1173/fdinfo’: Permission denied
+find: ‘/proc/1173/ns’: Permission denied
+find: ‘/proc/1278/task/1278/fd’: Permission denied
+find: ‘/proc/1278/task/1278/fdinfo’: Permission denied
+find: ‘/proc/1278/task/1278/ns’: Permission denied
+find: ‘/proc/1278/fd’: Permission denied
+find: ‘/proc/1278/map_files’: Permission denied
+find: ‘/proc/1278/fdinfo’: Permission denied
+find: ‘/proc/1278/ns’: Permission denied
+find: ‘/proc/1282/task/1282/fd’: Permission denied
+find: ‘/proc/1282/task/1282/fdinfo’: Permission denied
+find: ‘/proc/1282/task/1282/ns’: Permission denied
+find: ‘/proc/1282/task/1296/fd’: Permission denied
+find: ‘/proc/1282/task/1296/fdinfo’: Permission denied
+find: ‘/proc/1282/task/1296/ns’: Permission denied
+find: ‘/proc/1282/task/1308/fd’: Permission denied
+find: ‘/proc/1282/task/1308/fdinfo’: Permission denied
+find: ‘/proc/1282/task/1308/ns’: Permission denied
+find: ‘/proc/1282/fd’: Permission denied
+find: ‘/proc/1282/map_files’: Permission denied
+find: ‘/proc/1282/fdinfo’: Permission denied
+find: ‘/proc/1282/ns’: Permission denied
+find: ‘/proc/1284/task/1284/fd’: Permission denied
+find: ‘/proc/1284/task/1284/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1284/ns’: Permission denied
+find: ‘/proc/1284/task/1298/fd’: Permission denied
+find: ‘/proc/1284/task/1298/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1298/ns’: Permission denied
+find: ‘/proc/1284/task/1299/fd’: Permission denied
+find: ‘/proc/1284/task/1299/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1299/ns’: Permission denied
+find: ‘/proc/1284/task/1300/fd’: Permission denied
+find: ‘/proc/1284/task/1300/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1300/ns’: Permission denied
+find: ‘/proc/1284/task/1301/fd’: Permission denied
+find: ‘/proc/1284/task/1301/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1301/ns’: Permission denied
+find: ‘/proc/1284/task/1302/fd’: Permission denied
+find: ‘/proc/1284/task/1302/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1302/ns’: Permission denied
+find: ‘/proc/1284/task/1303/fd’: Permission denied
+find: ‘/proc/1284/task/1303/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1303/ns’: Permission denied
+find: ‘/proc/1284/task/1304/fd’: Permission denied
+find: ‘/proc/1284/task/1304/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1304/ns’: Permission denied
+find: ‘/proc/1284/task/1305/fd’: Permission denied
+find: ‘/proc/1284/task/1305/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1305/ns’: Permission denied
+find: ‘/proc/1284/task/1306/fd’: Permission denied
+find: ‘/proc/1284/task/1306/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1306/ns’: Permission denied
+find: ‘/proc/1284/task/1307/fd’: Permission denied
+find: ‘/proc/1284/task/1307/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1307/ns’: Permission denied
+find: ‘/proc/1284/task/1339/fd’: Permission denied
+find: ‘/proc/1284/task/1339/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1339/ns’: Permission denied
+find: ‘/proc/1284/task/1340/fd’: Permission denied
+find: ‘/proc/1284/task/1340/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1340/ns’: Permission denied
+find: ‘/proc/1284/task/1341/fd’: Permission denied
+find: ‘/proc/1284/task/1341/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1341/ns’: Permission denied
+find: ‘/proc/1284/task/1342/fd’: Permission denied
+find: ‘/proc/1284/task/1342/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1342/ns’: Permission denied
+find: ‘/proc/1284/task/1343/fd’: Permission denied
+find: ‘/proc/1284/task/1343/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1343/ns’: Permission denied
+find: ‘/proc/1284/task/1423/fd’: Permission denied
+find: ‘/proc/1284/task/1423/fdinfo’: Permission denied
+find: ‘/proc/1284/task/1423/ns’: Permission denied
+find: ‘/proc/1284/fd’: Permission denied
+find: ‘/proc/1284/map_files’: Permission denied
+find: ‘/proc/1284/fdinfo’: Permission denied
+find: ‘/proc/1284/ns’: Permission denied
+find: ‘/proc/1287/task/1287/fd’: Permission denied
+find: ‘/proc/1287/task/1287/fdinfo’: Permission denied
+find: ‘/proc/1287/task/1287/ns’: Permission denied
+find: ‘/proc/1287/fd’: Permission denied
+find: ‘/proc/1287/map_files’: Permission denied
+find: ‘/proc/1287/fdinfo’: Permission denied
+find: ‘/proc/1287/ns’: Permission denied
+find: ‘/proc/1288/task/1288/fd’: Permission denied
+find: ‘/proc/1288/task/1288/fdinfo’: Permission denied
+find: ‘/proc/1288/task/1288/ns’: Permission denied
+find: ‘/proc/1288/fd’: Permission denied
+find: ‘/proc/1288/map_files’: Permission denied
+find: ‘/proc/1288/fdinfo’: Permission denied
+find: ‘/proc/1288/ns’: Permission denied
+find: ‘/proc/1329/task/1329/fd’: Permission denied
+find: ‘/proc/1329/task/1329/fdinfo’: Permission denied
+find: ‘/proc/1329/task/1329/ns’: Permission denied
+find: ‘/proc/1329/task/1331/fd’: Permission denied
+find: ‘/proc/1329/task/1331/fdinfo’: Permission denied
+find: ‘/proc/1329/task/1331/ns’: Permission denied
+find: ‘/proc/1329/task/1332/fd’: Permission denied
+find: ‘/proc/1329/task/1332/fdinfo’: Permission denied
+find: ‘/proc/1329/task/1332/ns’: Permission denied
+find: ‘/proc/1329/fd’: Permission denied
+find: ‘/proc/1329/map_files’: Permission denied
+find: ‘/proc/1329/fdinfo’: Permission denied
+find: ‘/proc/1329/ns’: Permission denied
+find: ‘/proc/1335/task/1335/fd’: Permission denied
+find: ‘/proc/1335/task/1335/fdinfo’: Permission denied
+find: ‘/proc/1335/task/1335/ns’: Permission denied
+find: ‘/proc/1335/task/1336/fd’: Permission denied
+find: ‘/proc/1335/task/1336/fdinfo’: Permission denied
+find: ‘/proc/1335/task/1336/ns’: Permission denied
+find: ‘/proc/1335/task/1338/fd’: Permission denied
+find: ‘/proc/1335/task/1338/fdinfo’: Permission denied
+find: ‘/proc/1335/task/1338/ns’: Permission denied
+find: ‘/proc/1335/fd’: Permission denied
+find: ‘/proc/1335/map_files’: Permission denied
+find: ‘/proc/1335/fdinfo’: Permission denied
+find: ‘/proc/1335/ns’: Permission denied
+find: ‘/proc/1371/task/1371/fd’: Permission denied
+find: ‘/proc/1371/task/1371/fdinfo’: Permission denied
+find: ‘/proc/1371/task/1371/ns’: Permission denied
+find: ‘/proc/1371/fd’: Permission denied
+find: ‘/proc/1371/map_files’: Permission denied
+find: ‘/proc/1371/fdinfo’: Permission denied
+find: ‘/proc/1371/ns’: Permission denied
+find: ‘/proc/1380/task/1380/fd’: Permission denied
+find: ‘/proc/1380/task/1380/fdinfo’: Permission denied
+find: ‘/proc/1380/task/1380/ns’: Permission denied
+find: ‘/proc/1380/fd’: Permission denied
+find: ‘/proc/1380/map_files’: Permission denied
+find: ‘/proc/1380/fdinfo’: Permission denied
+find: ‘/proc/1380/ns’: Permission denied
+find: ‘/proc/1417/task/1417/fd’: Permission denied
+find: ‘/proc/1417/task/1417/fdinfo’: Permission denied
+find: ‘/proc/1417/task/1417/ns’: Permission denied
+find: ‘/proc/1417/fd’: Permission denied
+find: ‘/proc/1417/map_files’: Permission denied
+find: ‘/proc/1417/fdinfo’: Permission denied
+find: ‘/proc/1417/ns’: Permission denied
+find: ‘/proc/1418/task/1418/fd’: Permission denied
+find: ‘/proc/1418/task/1418/fdinfo’: Permission denied
+find: ‘/proc/1418/task/1418/ns’: Permission denied
+find: ‘/proc/1418/fd’: Permission denied
+find: ‘/proc/1418/map_files’: Permission denied
+find: ‘/proc/1418/fdinfo’: Permission denied
+find: ‘/proc/1418/ns’: Permission denied
+find: ‘/proc/1422/task/1422/fd’: Permission denied
+find: ‘/proc/1422/task/1422/fdinfo’: Permission denied
+find: ‘/proc/1422/task/1422/ns’: Permission denied
+find: ‘/proc/1422/task/1473/fd’: Permission denied
+find: ‘/proc/1422/task/1473/fdinfo’: Permission denied
+find: ‘/proc/1422/task/1473/ns’: Permission denied
+find: ‘/proc/1422/fd’: Permission denied
+find: ‘/proc/1422/map_files’: Permission denied
+find: ‘/proc/1422/fdinfo’: Permission denied
+find: ‘/proc/1422/ns’: Permission denied
+find: ‘/proc/1425/task/1425/fd’: Permission denied
+find: ‘/proc/1425/task/1425/fdinfo’: Permission denied
+find: ‘/proc/1425/task/1425/ns’: Permission denied
+find: ‘/proc/1425/task/1453/fd’: Permission denied
+find: ‘/proc/1425/task/1453/fdinfo’: Permission denied
+find: ‘/proc/1425/task/1453/ns’: Permission denied
+find: ‘/proc/1425/task/1486/fd’: Permission denied
+find: ‘/proc/1425/task/1486/fdinfo’: Permission denied
+find: ‘/proc/1425/task/1486/ns’: Permission denied
+find: ‘/proc/1425/fd’: Permission denied
+find: ‘/proc/1425/map_files’: Permission denied
+find: ‘/proc/1425/fdinfo’: Permission denied
+find: ‘/proc/1425/ns’: Permission denied
+find: ‘/proc/1454/task/1454/fd’: Permission denied
+find: ‘/proc/1454/task/1454/fdinfo’: Permission denied
+find: ‘/proc/1454/task/1454/ns’: Permission denied
+find: ‘/proc/1454/task/1480/fd’: Permission denied
+find: ‘/proc/1454/task/1480/fdinfo’: Permission denied
+find: ‘/proc/1454/task/1480/ns’: Permission denied
+find: ‘/proc/1454/task/1481/fd’: Permission denied
+find: ‘/proc/1454/task/1481/fdinfo’: Permission denied
+find: ‘/proc/1454/task/1481/ns’: Permission denied
+find: ‘/proc/1454/task/1482/fd’: Permission denied
+find: ‘/proc/1454/task/1482/fdinfo’: Permission denied
+find: ‘/proc/1454/task/1482/ns’: Permission denied
+find: ‘/proc/1454/task/1483/fd’: Permission denied
+find: ‘/proc/1454/task/1483/fdinfo’: Permission denied
+find: ‘/proc/1454/task/1483/ns’: Permission denied
+find: ‘/proc/1454/task/1485/fd’: Permission denied
+find: ‘/proc/1454/task/1485/fdinfo’: Permission denied
+find: ‘/proc/1454/task/1485/ns’: Permission denied
+find: ‘/proc/1454/fd’: Permission denied
+find: ‘/proc/1454/map_files’: Permission denied
+find: ‘/proc/1454/fdinfo’: Permission denied
+find: ‘/proc/1454/ns’: Permission denied
+find: ‘/proc/1474/task/1474/fd’: Permission denied
+find: ‘/proc/1474/task/1474/fdinfo’: Permission denied
+find: ‘/proc/1474/task/1474/ns’: Permission denied
+find: ‘/proc/1474/task/1479/fd’: Permission denied
+find: ‘/proc/1474/task/1479/fdinfo’: Permission denied
+find: ‘/proc/1474/task/1479/ns’: Permission denied
+find: ‘/proc/1474/fd’: Permission denied
+find: ‘/proc/1474/map_files’: Permission denied
+find: ‘/proc/1474/fdinfo’: Permission denied
+find: ‘/proc/1474/ns’: Permission denied
+find: ‘/proc/1487/task/1487/fd’: Permission denied
+find: ‘/proc/1487/task/1487/fdinfo’: Permission denied
+find: ‘/proc/1487/task/1487/ns’: Permission denied
+find: ‘/proc/1487/task/1517/fd’: Permission denied
+find: ‘/proc/1487/task/1517/fdinfo’: Permission denied
+find: ‘/proc/1487/task/1517/ns’: Permission denied
+find: ‘/proc/1487/task/1518/fd’: Permission denied
+find: ‘/proc/1487/task/1518/fdinfo’: Permission denied
+find: ‘/proc/1487/task/1518/ns’: Permission denied
+find: ‘/proc/1487/task/1520/fd’: Permission denied
+find: ‘/proc/1487/task/1520/fdinfo’: Permission denied
+find: ‘/proc/1487/task/1520/ns’: Permission denied
+find: ‘/proc/1487/fd’: Permission denied
+find: ‘/proc/1487/map_files’: Permission denied
+find: ‘/proc/1487/fdinfo’: Permission denied
+find: ‘/proc/1487/ns’: Permission denied
+find: ‘/proc/1496/task/1496/fd’: Permission denied
+find: ‘/proc/1496/task/1496/fdinfo’: Permission denied
+find: ‘/proc/1496/task/1496/ns’: Permission denied
+find: ‘/proc/1496/task/1497/fd’: Permission denied
+find: ‘/proc/1496/task/1497/fdinfo’: Permission denied
+find: ‘/proc/1496/task/1497/ns’: Permission denied
+find: ‘/proc/1496/task/1498/fd’: Permission denied
+find: ‘/proc/1496/task/1498/fdinfo’: Permission denied
+find: ‘/proc/1496/task/1498/ns’: Permission denied
+find: ‘/proc/1496/task/1500/fd’: Permission denied
+find: ‘/proc/1496/task/1500/fdinfo’: Permission denied
+find: ‘/proc/1496/task/1500/ns’: Permission denied
+find: ‘/proc/1496/fd’: Permission denied
+find: ‘/proc/1496/map_files’: Permission denied
+find: ‘/proc/1496/fdinfo’: Permission denied
+find: ‘/proc/1496/ns’: Permission denied
+find: ‘/proc/1501/task/1501/fd’: Permission denied
+find: ‘/proc/1501/task/1501/fdinfo’: Permission denied
+find: ‘/proc/1501/task/1501/ns’: Permission denied
+find: ‘/proc/1501/task/1502/fd’: Permission denied
+find: ‘/proc/1501/task/1502/fdinfo’: Permission denied
+find: ‘/proc/1501/task/1502/ns’: Permission denied
+find: ‘/proc/1501/fd’: Permission denied
+find: ‘/proc/1501/map_files’: Permission denied
+find: ‘/proc/1501/fdinfo’: Permission denied
+find: ‘/proc/1501/ns’: Permission denied
+find: ‘/proc/1505/task/1505/fd’: Permission denied
+find: ‘/proc/1505/task/1505/fdinfo’: Permission denied
+find: ‘/proc/1505/task/1505/ns’: Permission denied
+find: ‘/proc/1505/task/1506/fd’: Permission denied
+find: ‘/proc/1505/task/1506/fdinfo’: Permission denied
+find: ‘/proc/1505/task/1506/ns’: Permission denied
+find: ‘/proc/1505/task/1507/fd’: Permission denied
+find: ‘/proc/1505/task/1507/fdinfo’: Permission denied
+find: ‘/proc/1505/task/1507/ns’: Permission denied
+find: ‘/proc/1505/fd’: Permission denied
+find: ‘/proc/1505/map_files’: Permission denied
+find: ‘/proc/1505/fdinfo’: Permission denied
+find: ‘/proc/1505/ns’: Permission denied
+find: ‘/proc/1521/task/1521/fd’: Permission denied
+find: ‘/proc/1521/task/1521/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1521/ns’: Permission denied
+find: ‘/proc/1521/task/1524/fd’: Permission denied
+find: ‘/proc/1521/task/1524/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1524/ns’: Permission denied
+find: ‘/proc/1521/task/1526/fd’: Permission denied
+find: ‘/proc/1521/task/1526/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1526/ns’: Permission denied
+find: ‘/proc/1521/task/1527/fd’: Permission denied
+find: ‘/proc/1521/task/1527/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1527/ns’: Permission denied
+find: ‘/proc/1521/task/1528/fd’: Permission denied
+find: ‘/proc/1521/task/1528/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1528/ns’: Permission denied
+find: ‘/proc/1521/task/1529/fd’: Permission denied
+find: ‘/proc/1521/task/1529/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1529/ns’: Permission denied
+find: ‘/proc/1521/task/1530/fd’: Permission denied
+find: ‘/proc/1521/task/1530/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1530/ns’: Permission denied
+find: ‘/proc/1521/task/1531/fd’: Permission denied
+find: ‘/proc/1521/task/1531/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1531/ns’: Permission denied
+find: ‘/proc/1521/task/1532/fd’: Permission denied
+find: ‘/proc/1521/task/1532/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1532/ns’: Permission denied
+find: ‘/proc/1521/task/1533/fd’: Permission denied
+find: ‘/proc/1521/task/1533/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1533/ns’: Permission denied
+find: ‘/proc/1521/task/1534/fd’: Permission denied
+find: ‘/proc/1521/task/1534/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1534/ns’: Permission denied
+find: ‘/proc/1521/task/1535/fd’: Permission denied
+find: ‘/proc/1521/task/1535/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1535/ns’: Permission denied
+find: ‘/proc/1521/task/1536/fd’: Permission denied
+find: ‘/proc/1521/task/1536/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1536/ns’: Permission denied
+find: ‘/proc/1521/task/1537/fd’: Permission denied
+find: ‘/proc/1521/task/1537/fdinfo’: Permission denied
+find: ‘/proc/1521/task/1537/ns’: Permission denied
+find: ‘/proc/1521/fd’: Permission denied
+find: ‘/proc/1521/map_files’: Permission denied
+find: ‘/proc/1521/fdinfo’: Permission denied
+find: ‘/proc/1521/ns’: Permission denied
+find: ‘/proc/1539/task/1539/fd’: Permission denied
+find: ‘/proc/1539/task/1539/fdinfo’: Permission denied
+find: ‘/proc/1539/task/1539/ns’: Permission denied
+find: ‘/proc/1539/task/1540/fd’: Permission denied
+find: ‘/proc/1539/task/1540/fdinfo’: Permission denied
+find: ‘/proc/1539/task/1540/ns’: Permission denied
+find: ‘/proc/1539/task/1543/fd’: Permission denied
+find: ‘/proc/1539/task/1543/fdinfo’: Permission denied
+find: ‘/proc/1539/task/1543/ns’: Permission denied
+find: ‘/proc/1539/fd’: Permission denied
+find: ‘/proc/1539/map_files’: Permission denied
+find: ‘/proc/1539/fdinfo’: Permission denied
+find: ‘/proc/1539/ns’: Permission denied
+find: ‘/proc/1542/task/1542/fd’: Permission denied
+find: ‘/proc/1542/task/1542/fdinfo’: Permission denied
+find: ‘/proc/1542/task/1542/ns’: Permission denied
+find: ‘/proc/1542/task/1546/fd’: Permission denied
+find: ‘/proc/1542/task/1546/fdinfo’: Permission denied
+find: ‘/proc/1542/task/1546/ns’: Permission denied
+find: ‘/proc/1542/task/1549/fd’: Permission denied
+find: ‘/proc/1542/task/1549/fdinfo’: Permission denied
+find: ‘/proc/1542/task/1549/ns’: Permission denied
+find: ‘/proc/1542/task/1552/fd’: Permission denied
+find: ‘/proc/1542/task/1552/fdinfo’: Permission denied
+find: ‘/proc/1542/task/1552/ns’: Permission denied
+find: ‘/proc/1542/fd’: Permission denied
+find: ‘/proc/1542/map_files’: Permission denied
+find: ‘/proc/1542/fdinfo’: Permission denied
+find: ‘/proc/1542/ns’: Permission denied
+find: ‘/proc/1545/task/1545/fd’: Permission denied
+find: ‘/proc/1545/task/1545/fdinfo’: Permission denied
+find: ‘/proc/1545/task/1545/ns’: Permission denied
+find: ‘/proc/1545/task/1551/fd’: Permission denied
+find: ‘/proc/1545/task/1551/fdinfo’: Permission denied
+find: ‘/proc/1545/task/1551/ns’: Permission denied
+find: ‘/proc/1545/task/1553/fd’: Permission denied
+find: ‘/proc/1545/task/1553/fdinfo’: Permission denied
+find: ‘/proc/1545/task/1553/ns’: Permission denied
+find: ‘/proc/1545/fd’: Permission denied
+find: ‘/proc/1545/map_files’: Permission denied
+find: ‘/proc/1545/fdinfo’: Permission denied
+find: ‘/proc/1545/ns’: Permission denied
+find: ‘/proc/1550/task/1550/fd’: Permission denied
+find: ‘/proc/1550/task/1550/fdinfo’: Permission denied
+find: ‘/proc/1550/task/1550/ns’: Permission denied
+find: ‘/proc/1550/task/1554/fd’: Permission denied
+find: ‘/proc/1550/task/1554/fdinfo’: Permission denied
+find: ‘/proc/1550/task/1554/ns’: Permission denied
+find: ‘/proc/1550/task/1555/fd’: Permission denied
+find: ‘/proc/1550/task/1555/fdinfo’: Permission denied
+find: ‘/proc/1550/task/1555/ns’: Permission denied
+find: ‘/proc/1550/fd’: Permission denied
+find: ‘/proc/1550/map_files’: Permission denied
+find: ‘/proc/1550/fdinfo’: Permission denied
+find: ‘/proc/1550/ns’: Permission denied
+find: ‘/proc/1557/task/1557/fd’: Permission denied
+find: ‘/proc/1557/task/1557/fdinfo’: Permission denied
+find: ‘/proc/1557/task/1557/ns’: Permission denied
+find: ‘/proc/1557/task/1558/fd’: Permission denied
+find: ‘/proc/1557/task/1558/fdinfo’: Permission denied
+find: ‘/proc/1557/task/1558/ns’: Permission denied
+find: ‘/proc/1557/task/1560/fd’: Permission denied
+find: ‘/proc/1557/task/1560/fdinfo’: Permission denied
+find: ‘/proc/1557/task/1560/ns’: Permission denied
+find: ‘/proc/1557/fd’: Permission denied
+find: ‘/proc/1557/map_files’: Permission denied
+find: ‘/proc/1557/fdinfo’: Permission denied
+find: ‘/proc/1557/ns’: Permission denied
+find: ‘/proc/1562/task/1562/fd’: Permission denied
+find: ‘/proc/1562/task/1562/fdinfo’: Permission denied
+find: ‘/proc/1562/task/1562/ns’: Permission denied
+find: ‘/proc/1562/task/1563/fd’: Permission denied
+find: ‘/proc/1562/task/1563/fdinfo’: Permission denied
+find: ‘/proc/1562/task/1563/ns’: Permission denied
+find: ‘/proc/1562/task/1564/fd’: Permission denied
+find: ‘/proc/1562/task/1564/fdinfo’: Permission denied
+find: ‘/proc/1562/task/1564/ns’: Permission denied
+find: ‘/proc/1562/fd’: Permission denied
+find: ‘/proc/1562/map_files’: Permission denied
+find: ‘/proc/1562/fdinfo’: Permission denied
+find: ‘/proc/1562/ns’: Permission denied
+find: ‘/proc/1582/task/1582/fd’: Permission denied
+find: ‘/proc/1582/task/1582/fdinfo’: Permission denied
+find: ‘/proc/1582/task/1582/ns’: Permission denied
+find: ‘/proc/1582/fd’: Permission denied
+find: ‘/proc/1582/map_files’: Permission denied
+find: ‘/proc/1582/fdinfo’: Permission denied
+find: ‘/proc/1582/ns’: Permission denied
+find: ‘/proc/1583/task/1583/fd’: Permission denied
+find: ‘/proc/1583/task/1583/fdinfo’: Permission denied
+find: ‘/proc/1583/task/1583/ns’: Permission denied
+find: ‘/proc/1583/task/1590/fd’: Permission denied
+find: ‘/proc/1583/task/1590/fdinfo’: Permission denied
+find: ‘/proc/1583/task/1590/ns’: Permission denied
+find: ‘/proc/1583/task/1592/fd’: Permission denied
+find: ‘/proc/1583/task/1592/fdinfo’: Permission denied
+find: ‘/proc/1583/task/1592/ns’: Permission denied
+find: ‘/proc/1583/task/1654/fd’: Permission denied
+find: ‘/proc/1583/task/1654/fdinfo’: Permission denied
+find: ‘/proc/1583/task/1654/ns’: Permission denied
+find: ‘/proc/1583/fd’: Permission denied
+find: ‘/proc/1583/map_files’: Permission denied
+find: ‘/proc/1583/fdinfo’: Permission denied
+find: ‘/proc/1583/ns’: Permission denied
+find: ‘/proc/1584/task/1584/fd’: Permission denied
+find: ‘/proc/1584/task/1584/fdinfo’: Permission denied
+find: ‘/proc/1584/task/1584/ns’: Permission denied
+find: ‘/proc/1584/task/1586/fd’: Permission denied
+find: ‘/proc/1584/task/1586/fdinfo’: Permission denied
+find: ‘/proc/1584/task/1586/ns’: Permission denied
+find: ‘/proc/1584/task/1588/fd’: Permission denied
+find: ‘/proc/1584/task/1588/fdinfo’: Permission denied
+find: ‘/proc/1584/task/1588/ns’: Permission denied
+find: ‘/proc/1584/task/1653/fd’: Permission denied
+find: ‘/proc/1584/task/1653/fdinfo’: Permission denied
+find: ‘/proc/1584/task/1653/ns’: Permission denied
+find: ‘/proc/1584/fd’: Permission denied
+find: ‘/proc/1584/map_files’: Permission denied
+find: ‘/proc/1584/fdinfo’: Permission denied
+find: ‘/proc/1584/ns’: Permission denied
+find: ‘/proc/1587/task/1587/fd’: Permission denied
+find: ‘/proc/1587/task/1587/fdinfo’: Permission denied
+find: ‘/proc/1587/task/1587/ns’: Permission denied
+find: ‘/proc/1587/task/1624/fd’: Permission denied
+find: ‘/proc/1587/task/1624/fdinfo’: Permission denied
+find: ‘/proc/1587/task/1624/ns’: Permission denied
+find: ‘/proc/1587/task/1627/fd’: Permission denied
+find: ‘/proc/1587/task/1627/fdinfo’: Permission denied
+find: ‘/proc/1587/task/1627/ns’: Permission denied
+find: ‘/proc/1587/fd’: Permission denied
+find: ‘/proc/1587/map_files’: Permission denied
+find: ‘/proc/1587/fdinfo’: Permission denied
+find: ‘/proc/1587/ns’: Permission denied
+find: ‘/proc/1589/task/1589/fd’: Permission denied
+find: ‘/proc/1589/task/1589/fdinfo’: Permission denied
+find: ‘/proc/1589/task/1589/ns’: Permission denied
+find: ‘/proc/1589/task/1602/fd’: Permission denied
+find: ‘/proc/1589/task/1602/fdinfo’: Permission denied
+find: ‘/proc/1589/task/1602/ns’: Permission denied
+find: ‘/proc/1589/task/1603/fd’: Permission denied
+find: ‘/proc/1589/task/1603/fdinfo’: Permission denied
+find: ‘/proc/1589/task/1603/ns’: Permission denied
+find: ‘/proc/1589/task/1605/fd’: Permission denied
+find: ‘/proc/1589/task/1605/fdinfo’: Permission denied
+find: ‘/proc/1589/task/1605/ns’: Permission denied
+find: ‘/proc/1589/fd’: Permission denied
+find: ‘/proc/1589/map_files’: Permission denied
+find: ‘/proc/1589/fdinfo’: Permission denied
+find: ‘/proc/1589/ns’: Permission denied
+find: ‘/proc/1593/task/1593/fd’: Permission denied
+find: ‘/proc/1593/task/1593/fdinfo’: Permission denied
+find: ‘/proc/1593/task/1593/ns’: Permission denied
+find: ‘/proc/1593/task/1598/fd’: Permission denied
+find: ‘/proc/1593/task/1598/fdinfo’: Permission denied
+find: ‘/proc/1593/task/1598/ns’: Permission denied
+find: ‘/proc/1593/task/1601/fd’: Permission denied
+find: ‘/proc/1593/task/1601/fdinfo’: Permission denied
+find: ‘/proc/1593/task/1601/ns’: Permission denied
+find: ‘/proc/1593/fd’: Permission denied
+find: ‘/proc/1593/map_files’: Permission denied
+find: ‘/proc/1593/fdinfo’: Permission denied
+find: ‘/proc/1593/ns’: Permission denied
+find: ‘/proc/1594/task/1594/fd’: Permission denied
+find: ‘/proc/1594/task/1594/fdinfo’: Permission denied
+find: ‘/proc/1594/task/1594/ns’: Permission denied
+find: ‘/proc/1594/task/1596/fd’: Permission denied
+find: ‘/proc/1594/task/1596/fdinfo’: Permission denied
+find: ‘/proc/1594/task/1596/ns’: Permission denied
+find: ‘/proc/1594/task/1600/fd’: Permission denied
+find: ‘/proc/1594/task/1600/fdinfo’: Permission denied
+find: ‘/proc/1594/task/1600/ns’: Permission denied
+find: ‘/proc/1594/fd’: Permission denied
+find: ‘/proc/1594/map_files’: Permission denied
+find: ‘/proc/1594/fdinfo’: Permission denied
+find: ‘/proc/1594/ns’: Permission denied
+find: ‘/proc/1595/task/1595/fd’: Permission denied
+find: ‘/proc/1595/task/1595/fdinfo’: Permission denied
+find: ‘/proc/1595/task/1595/ns’: Permission denied
+find: ‘/proc/1595/task/1634/fd’: Permission denied
+find: ‘/proc/1595/task/1634/fdinfo’: Permission denied
+find: ‘/proc/1595/task/1634/ns’: Permission denied
+find: ‘/proc/1595/task/1635/fd’: Permission denied
+find: ‘/proc/1595/task/1635/fdinfo’: Permission denied
+find: ‘/proc/1595/task/1635/ns’: Permission denied
+find: ‘/proc/1595/task/1643/fd’: Permission denied
+find: ‘/proc/1595/task/1643/fdinfo’: Permission denied
+find: ‘/proc/1595/task/1643/ns’: Permission denied
+find: ‘/proc/1595/fd’: Permission denied
+find: ‘/proc/1595/map_files’: Permission denied
+find: ‘/proc/1595/fdinfo’: Permission denied
+find: ‘/proc/1595/ns’: Permission denied
+find: ‘/proc/1599/task/1599/fd’: Permission denied
+find: ‘/proc/1599/task/1599/fdinfo’: Permission denied
+find: ‘/proc/1599/task/1599/ns’: Permission denied
+find: ‘/proc/1599/task/1633/fd’: Permission denied
+find: ‘/proc/1599/task/1633/fdinfo’: Permission denied
+find: ‘/proc/1599/task/1633/ns’: Permission denied
+find: ‘/proc/1599/task/1638/fd’: Permission denied
+find: ‘/proc/1599/task/1638/fdinfo’: Permission denied
+find: ‘/proc/1599/task/1638/ns’: Permission denied
+find: ‘/proc/1599/task/1661/fd’: Permission denied
+find: ‘/proc/1599/task/1661/fdinfo’: Permission denied
+find: ‘/proc/1599/task/1661/ns’: Permission denied
+find: ‘/proc/1599/fd’: Permission denied
+find: ‘/proc/1599/map_files’: Permission denied
+find: ‘/proc/1599/fdinfo’: Permission denied
+find: ‘/proc/1599/ns’: Permission denied
+find: ‘/proc/1604/task/1604/fd’: Permission denied
+find: ‘/proc/1604/task/1604/fdinfo’: Permission denied
+find: ‘/proc/1604/task/1604/ns’: Permission denied
+find: ‘/proc/1604/task/1606/fd’: Permission denied
+find: ‘/proc/1604/task/1606/fdinfo’: Permission denied
+find: ‘/proc/1604/task/1606/ns’: Permission denied
+find: ‘/proc/1604/task/1608/fd’: Permission denied
+find: ‘/proc/1604/task/1608/fdinfo’: Permission denied
+find: ‘/proc/1604/task/1608/ns’: Permission denied
+find: ‘/proc/1604/fd’: Permission denied
+find: ‘/proc/1604/map_files’: Permission denied
+find: ‘/proc/1604/fdinfo’: Permission denied
+find: ‘/proc/1604/ns’: Permission denied
+find: ‘/proc/1607/task/1607/fd’: Permission denied
+find: ‘/proc/1607/task/1607/fdinfo’: Permission denied
+find: ‘/proc/1607/task/1607/ns’: Permission denied
+find: ‘/proc/1607/task/1636/fd’: Permission denied
+find: ‘/proc/1607/task/1636/fdinfo’: Permission denied
+find: ‘/proc/1607/task/1636/ns’: Permission denied
+find: ‘/proc/1607/task/1642/fd’: Permission denied
+find: ‘/proc/1607/task/1642/fdinfo’: Permission denied
+find: ‘/proc/1607/task/1642/ns’: Permission denied
+find: ‘/proc/1607/task/1672/fd’: Permission denied
+find: ‘/proc/1607/task/1672/fdinfo’: Permission denied
+find: ‘/proc/1607/task/1672/ns’: Permission denied
+find: ‘/proc/1607/fd’: Permission denied
+find: ‘/proc/1607/map_files’: Permission denied
+find: ‘/proc/1607/fdinfo’: Permission denied
+find: ‘/proc/1607/ns’: Permission denied
+find: ‘/proc/1611/task/1611/fd’: Permission denied
+find: ‘/proc/1611/task/1611/fdinfo’: Permission denied
+find: ‘/proc/1611/task/1611/ns’: Permission denied
+find: ‘/proc/1611/task/1613/fd’: Permission denied
+find: ‘/proc/1611/task/1613/fdinfo’: Permission denied
+find: ‘/proc/1611/task/1613/ns’: Permission denied
+find: ‘/proc/1611/task/1614/fd’: Permission denied
+find: ‘/proc/1611/task/1614/fdinfo’: Permission denied
+find: ‘/proc/1611/task/1614/ns’: Permission denied
+find: ‘/proc/1611/fd’: Permission denied
+find: ‘/proc/1611/map_files’: Permission denied
+find: ‘/proc/1611/fdinfo’: Permission denied
+find: ‘/proc/1611/ns’: Permission denied
+find: ‘/proc/1612/task/1612/fd’: Permission denied
+find: ‘/proc/1612/task/1612/fdinfo’: Permission denied
+find: ‘/proc/1612/task/1612/ns’: Permission denied
+find: ‘/proc/1612/task/1616/fd’: Permission denied
+find: ‘/proc/1612/task/1616/fdinfo’: Permission denied
+find: ‘/proc/1612/task/1616/ns’: Permission denied
+find: ‘/proc/1612/task/1619/fd’: Permission denied
+find: ‘/proc/1612/task/1619/fdinfo’: Permission denied
+find: ‘/proc/1612/task/1619/ns’: Permission denied
+find: ‘/proc/1612/fd’: Permission denied
+find: ‘/proc/1612/map_files’: Permission denied
+find: ‘/proc/1612/fdinfo’: Permission denied
+find: ‘/proc/1612/ns’: Permission denied
+find: ‘/proc/1615/task/1615/fd’: Permission denied
+find: ‘/proc/1615/task/1615/fdinfo’: Permission denied
+find: ‘/proc/1615/task/1615/ns’: Permission denied
+find: ‘/proc/1615/task/1617/fd’: Permission denied
+find: ‘/proc/1615/task/1617/fdinfo’: Permission denied
+find: ‘/proc/1615/task/1617/ns’: Permission denied
+find: ‘/proc/1615/task/1621/fd’: Permission denied
+find: ‘/proc/1615/task/1621/fdinfo’: Permission denied
+find: ‘/proc/1615/task/1621/ns’: Permission denied
+find: ‘/proc/1615/fd’: Permission denied
+find: ‘/proc/1615/map_files’: Permission denied
+find: ‘/proc/1615/fdinfo’: Permission denied
+find: ‘/proc/1615/ns’: Permission denied
+find: ‘/proc/1620/task/1620/fd’: Permission denied
+find: ‘/proc/1620/task/1620/fdinfo’: Permission denied
+find: ‘/proc/1620/task/1620/ns’: Permission denied
+find: ‘/proc/1620/task/1622/fd’: Permission denied
+find: ‘/proc/1620/task/1622/fdinfo’: Permission denied
+find: ‘/proc/1620/task/1622/ns’: Permission denied
+find: ‘/proc/1620/task/1623/fd’: Permission denied
+find: ‘/proc/1620/task/1623/fdinfo’: Permission denied
+find: ‘/proc/1620/task/1623/ns’: Permission denied
+find: ‘/proc/1620/task/1626/fd’: Permission denied
+find: ‘/proc/1620/task/1626/fdinfo’: Permission denied
+find: ‘/proc/1620/task/1626/ns’: Permission denied
+find: ‘/proc/1620/fd’: Permission denied
+find: ‘/proc/1620/map_files’: Permission denied
+find: ‘/proc/1620/fdinfo’: Permission denied
+find: ‘/proc/1620/ns’: Permission denied
+find: ‘/proc/1625/task/1625/fd’: Permission denied
+find: ‘/proc/1625/task/1625/fdinfo’: Permission denied
+find: ‘/proc/1625/task/1625/ns’: Permission denied
+find: ‘/proc/1625/task/1639/fd’: Permission denied
+find: ‘/proc/1625/task/1639/fdinfo’: Permission denied
+find: ‘/proc/1625/task/1639/ns’: Permission denied
+find: ‘/proc/1625/task/1644/fd’: Permission denied
+find: ‘/proc/1625/task/1644/fdinfo’: Permission denied
+find: ‘/proc/1625/task/1644/ns’: Permission denied
+find: ‘/proc/1625/task/1656/fd’: Permission denied
+find: ‘/proc/1625/task/1656/fdinfo’: Permission denied
+find: ‘/proc/1625/task/1656/ns’: Permission denied
+find: ‘/proc/1625/task/1677/fd’: Permission denied
+find: ‘/proc/1625/task/1677/fdinfo’: Permission denied
+find: ‘/proc/1625/task/1677/ns’: Permission denied
+find: ‘/proc/1625/task/1682/fd’: Permission denied
+find: ‘/proc/1625/task/1682/fdinfo’: Permission denied
+find: ‘/proc/1625/task/1682/ns’: Permission denied
+find: ‘/proc/1625/fd’: Permission denied
+find: ‘/proc/1625/map_files’: Permission denied
+find: ‘/proc/1625/fdinfo’: Permission denied
+find: ‘/proc/1625/ns’: Permission denied
+find: ‘/proc/1640/task/1640/fd’: Permission denied
+find: ‘/proc/1640/task/1640/fdinfo’: Permission denied
+find: ‘/proc/1640/task/1640/ns’: Permission denied
+find: ‘/proc/1640/task/1646/fd’: Permission denied
+find: ‘/proc/1640/task/1646/fdinfo’: Permission denied
+find: ‘/proc/1640/task/1646/ns’: Permission denied
+find: ‘/proc/1640/task/1648/fd’: Permission denied
+find: ‘/proc/1640/task/1648/fdinfo’: Permission denied
+find: ‘/proc/1640/task/1648/ns’: Permission denied
+find: ‘/proc/1640/task/1662/fd’: Permission denied
+find: ‘/proc/1640/task/1662/fdinfo’: Permission denied
+find: ‘/proc/1640/task/1662/ns’: Permission denied
+find: ‘/proc/1640/fd’: Permission denied
+find: ‘/proc/1640/map_files’: Permission denied
+find: ‘/proc/1640/fdinfo’: Permission denied
+find: ‘/proc/1640/ns’: Permission denied
+find: ‘/proc/1645/task/1645/fd’: Permission denied
+find: ‘/proc/1645/task/1645/fdinfo’: Permission denied
+find: ‘/proc/1645/task/1645/ns’: Permission denied
+find: ‘/proc/1645/task/1678/fd’: Permission denied
+find: ‘/proc/1645/task/1678/fdinfo’: Permission denied
+find: ‘/proc/1645/task/1678/ns’: Permission denied
+find: ‘/proc/1645/task/1681/fd’: Permission denied
+find: ‘/proc/1645/task/1681/fdinfo’: Permission denied
+find: ‘/proc/1645/task/1681/ns’: Permission denied
+find: ‘/proc/1645/fd’: Permission denied
+find: ‘/proc/1645/map_files’: Permission denied
+find: ‘/proc/1645/fdinfo’: Permission denied
+find: ‘/proc/1645/ns’: Permission denied
+find: ‘/proc/1655/task/1655/fd’: Permission denied
+find: ‘/proc/1655/task/1655/fdinfo’: Permission denied
+find: ‘/proc/1655/task/1655/ns’: Permission denied
+find: ‘/proc/1655/task/1670/fd’: Permission denied
+find: ‘/proc/1655/task/1670/fdinfo’: Permission denied
+find: ‘/proc/1655/task/1670/ns’: Permission denied
+find: ‘/proc/1655/task/1676/fd’: Permission denied
+find: ‘/proc/1655/task/1676/fdinfo’: Permission denied
+find: ‘/proc/1655/task/1676/ns’: Permission denied
+find: ‘/proc/1655/fd’: Permission denied
+find: ‘/proc/1655/map_files’: Permission denied
+find: ‘/proc/1655/fdinfo’: Permission denied
+find: ‘/proc/1655/ns’: Permission denied
+find: ‘/proc/1683/task/1683/fd’: Permission denied
+find: ‘/proc/1683/task/1683/fdinfo’: Permission denied
+find: ‘/proc/1683/task/1683/ns’: Permission denied
+find: ‘/proc/1683/task/1687/fd’: Permission denied
+find: ‘/proc/1683/task/1687/fdinfo’: Permission denied
+find: ‘/proc/1683/task/1687/ns’: Permission denied
+find: ‘/proc/1683/task/1690/fd’: Permission denied
+find: ‘/proc/1683/task/1690/fdinfo’: Permission denied
+find: ‘/proc/1683/task/1690/ns’: Permission denied
+find: ‘/proc/1683/fd’: Permission denied
+find: ‘/proc/1683/map_files’: Permission denied
+find: ‘/proc/1683/fdinfo’: Permission denied
+find: ‘/proc/1683/ns’: Permission denied
+find: ‘/proc/1733/task/1733/fd’: Permission denied
+find: ‘/proc/1733/task/1733/fdinfo’: Permission denied
+find: ‘/proc/1733/task/1733/ns’: Permission denied
+find: ‘/proc/1733/fd’: Permission denied
+find: ‘/proc/1733/map_files’: Permission denied
+find: ‘/proc/1733/fdinfo’: Permission denied
+find: ‘/proc/1733/ns’: Permission denied
+find: ‘/proc/2434/task/2434/fd’: Permission denied
+find: ‘/proc/2434/task/2434/fdinfo’: Permission denied
+find: ‘/proc/2434/task/2434/ns’: Permission denied
+find: ‘/proc/2434/task/2435/fd’: Permission denied
+find: ‘/proc/2434/task/2435/fdinfo’: Permission denied
+find: ‘/proc/2434/task/2435/ns’: Permission denied
+find: ‘/proc/2434/task/2437/fd’: Permission denied
+find: ‘/proc/2434/task/2437/fdinfo’: Permission denied
+find: ‘/proc/2434/task/2437/ns’: Permission denied
+find: ‘/proc/2434/fd’: Permission denied
+find: ‘/proc/2434/map_files’: Permission denied
+find: ‘/proc/2434/fdinfo’: Permission denied
+find: ‘/proc/2434/ns’: Permission denied
+find: ‘/proc/2450/task/2450/fd’: Permission denied
+find: ‘/proc/2450/task/2450/fdinfo’: Permission denied
+find: ‘/proc/2450/task/2450/ns’: Permission denied
+find: ‘/proc/2450/fd’: Permission denied
+find: ‘/proc/2450/map_files’: Permission denied
+find: ‘/proc/2450/fdinfo’: Permission denied
+find: ‘/proc/2450/ns’: Permission denied
+find: ‘/proc/2468/task/2468/fd’: Permission denied
+find: ‘/proc/2468/task/2468/fdinfo’: Permission denied
+find: ‘/proc/2468/task/2468/ns’: Permission denied
+find: ‘/proc/2468/task/2469/fd’: Permission denied
+find: ‘/proc/2468/task/2469/fdinfo’: Permission denied
+find: ‘/proc/2468/task/2469/ns’: Permission denied
+find: ‘/proc/2468/task/2470/fd’: Permission denied
+find: ‘/proc/2468/task/2470/fdinfo’: Permission denied
+find: ‘/proc/2468/task/2470/ns’: Permission denied
+find: ‘/proc/2468/task/2595/fd’: Permission denied
+find: ‘/proc/2468/task/2595/fdinfo’: Permission denied
+find: ‘/proc/2468/task/2595/ns’: Permission denied
+find: ‘/proc/2468/fd’: Permission denied
+find: ‘/proc/2468/map_files’: Permission denied
+find: ‘/proc/2468/fdinfo’: Permission denied
+find: ‘/proc/2468/ns’: Permission denied
+find: ‘/proc/2717/task/2717/fd’: Permission denied
+find: ‘/proc/2717/task/2717/fdinfo’: Permission denied
+find: ‘/proc/2717/task/2717/ns’: Permission denied
+find: ‘/proc/2717/fd’: Permission denied
+find: ‘/proc/2717/map_files’: Permission denied
+find: ‘/proc/2717/fdinfo’: Permission denied
+find: ‘/proc/2717/ns’: Permission denied
+find: ‘/proc/2807/task/2807/fd’: Permission denied
+find: ‘/proc/2807/task/2807/fdinfo’: Permission denied
+find: ‘/proc/2807/task/2807/ns’: Permission denied
+find: ‘/proc/2807/fd’: Permission denied
+find: ‘/proc/2807/map_files’: Permission denied
+find: ‘/proc/2807/fdinfo’: Permission denied
+find: ‘/proc/2807/ns’: Permission denied
+find: ‘/proc/3107/task/3107/fd’: Permission denied
+find: ‘/proc/3107/task/3107/fdinfo’: Permission denied
+find: ‘/proc/3107/task/3107/ns’: Permission denied
+find: ‘/proc/3107/task/3109/fd’: Permission denied
+find: ‘/proc/3107/task/3109/fdinfo’: Permission denied
+find: ‘/proc/3107/task/3109/ns’: Permission denied
+find: ‘/proc/3107/task/3110/fd’: Permission denied
+find: ‘/proc/3107/task/3110/fdinfo’: Permission denied
+find: ‘/proc/3107/task/3110/ns’: Permission denied
+find: ‘/proc/3107/task/3111/fd’: Permission denied
+find: ‘/proc/3107/task/3111/fdinfo’: Permission denied
+find: ‘/proc/3107/task/3111/ns’: Permission denied
+find: ‘/proc/3107/task/3112/fd’: Permission denied
+find: ‘/proc/3107/task/3112/fdinfo’: Permission denied
+find: ‘/proc/3107/task/3112/ns’: Permission denied
+find: ‘/proc/3107/fd’: Permission denied
+find: ‘/proc/3107/map_files’: Permission denied
+find: ‘/proc/3107/fdinfo’: Permission denied
+find: ‘/proc/3107/ns’: Permission denied
+find: ‘/proc/3113/task/3113/fd’: Permission denied
+find: ‘/proc/3113/task/3113/fdinfo’: Permission denied
+find: ‘/proc/3113/task/3113/ns’: Permission denied
+find: ‘/proc/3113/task/3114/fd’: Permission denied
+find: ‘/proc/3113/task/3114/fdinfo’: Permission denied
+find: ‘/proc/3113/task/3114/ns’: Permission denied
+find: ‘/proc/3113/task/3116/fd’: Permission denied
+find: ‘/proc/3113/task/3116/fdinfo’: Permission denied
+find: ‘/proc/3113/task/3116/ns’: Permission denied
+find: ‘/proc/3113/fd’: Permission denied
+find: ‘/proc/3113/map_files’: Permission denied
+find: ‘/proc/3113/fdinfo’: Permission denied
+find: ‘/proc/3113/ns’: Permission denied
+find: ‘/proc/3136/task/3136/fd’: Permission denied
+find: ‘/proc/3136/task/3136/fdinfo’: Permission denied
+find: ‘/proc/3136/task/3136/ns’: Permission denied
+find: ‘/proc/3136/fd’: Permission denied
+find: ‘/proc/3136/map_files’: Permission denied
+find: ‘/proc/3136/fdinfo’: Permission denied
+find: ‘/proc/3136/ns’: Permission denied
+find: ‘/proc/3328/task/3328/fd’: Permission denied
+find: ‘/proc/3328/task/3328/fdinfo’: Permission denied
+find: ‘/proc/3328/task/3328/ns’: Permission denied
+find: ‘/proc/3328/fd’: Permission denied
+find: ‘/proc/3328/map_files’: Permission denied
+find: ‘/proc/3328/fdinfo’: Permission denied
+find: ‘/proc/3328/ns’: Permission denied
+find: ‘/proc/3329/task/3329/fd’: Permission denied
+find: ‘/proc/3329/task/3329/fdinfo’: Permission denied
+find: ‘/proc/3329/task/3329/ns’: Permission denied
+find: ‘/proc/3329/task/3330/fd’: Permission denied
+find: ‘/proc/3329/task/3330/fdinfo’: Permission denied
+find: ‘/proc/3329/task/3330/ns’: Permission denied
+find: ‘/proc/3329/fd’: Permission denied
+find: ‘/proc/3329/map_files’: Permission denied
+find: ‘/proc/3329/fdinfo’: Permission denied
+find: ‘/proc/3329/ns’: Permission denied
+find: ‘/proc/3333/task/3333/fd’: Permission denied
+find: ‘/proc/3333/task/3333/fdinfo’: Permission denied
+find: ‘/proc/3333/task/3333/ns’: Permission denied
+find: ‘/proc/3333/task/3334/fd’: Permission denied
+find: ‘/proc/3333/task/3334/fdinfo’: Permission denied
+find: ‘/proc/3333/task/3334/ns’: Permission denied
+find: ‘/proc/3333/task/3335/fd’: Permission denied
+find: ‘/proc/3333/task/3335/fdinfo’: Permission denied
+find: ‘/proc/3333/task/3335/ns’: Permission denied
+find: ‘/proc/3333/fd’: Permission denied
+find: ‘/proc/3333/map_files’: Permission denied
+find: ‘/proc/3333/fdinfo’: Permission denied
+find: ‘/proc/3333/ns’: Permission denied
+find: ‘/proc/5052/task/5052/fd’: Permission denied
+find: ‘/proc/5052/task/5052/fdinfo’: Permission denied
+find: ‘/proc/5052/task/5052/ns’: Permission denied
+find: ‘/proc/5052/fd’: Permission denied
+find: ‘/proc/5052/map_files’: Permission denied
+find: ‘/proc/5052/fdinfo’: Permission denied
+find: ‘/proc/5052/ns’: Permission denied
+find: ‘/proc/37620/task/37620/fd’: Permission denied
+find: ‘/proc/37620/task/37620/fdinfo’: Permission denied
+find: ‘/proc/37620/task/37620/ns’: Permission denied
+find: ‘/proc/37620/fd’: Permission denied
+find: ‘/proc/37620/map_files’: Permission denied
+find: ‘/proc/37620/fdinfo’: Permission denied
+find: ‘/proc/37620/ns’: Permission denied
+find: ‘/proc/37675/task/37675/fd’: Permission denied
+find: ‘/proc/37675/task/37675/fdinfo’: Permission denied
+find: ‘/proc/37675/task/37675/ns’: Permission denied
+find: ‘/proc/37675/fd’: Permission denied
+find: ‘/proc/37675/map_files’: Permission denied
+find: ‘/proc/37675/fdinfo’: Permission denied
+find: ‘/proc/37675/ns’: Permission denied
+find: ‘/proc/37676/task/37676/fd’: Permission denied
+find: ‘/proc/37676/task/37676/fdinfo’: Permission denied
+find: ‘/proc/37676/task/37676/ns’: Permission denied
+find: ‘/proc/37676/fd’: Permission denied
+find: ‘/proc/37676/map_files’: Permission denied
+find: ‘/proc/37676/fdinfo’: Permission denied
+find: ‘/proc/37676/ns’: Permission denied
+find: ‘/proc/37677/task/37677/fd’: Permission denied
+find: ‘/proc/37677/task/37677/fdinfo’: Permission denied
+find: ‘/proc/37677/task/37677/ns’: Permission denied
+find: ‘/proc/37677/fd’: Permission denied
+find: ‘/proc/37677/map_files’: Permission denied
+find: ‘/proc/37677/fdinfo’: Permission denied
+find: ‘/proc/37677/ns’: Permission denied
+find: ‘/proc/37678/task/37678/fd’: Permission denied
+find: ‘/proc/37678/task/37678/fdinfo’: Permission denied
+find: ‘/proc/37678/task/37678/ns’: Permission denied
+find: ‘/proc/37678/fd’: Permission denied
+find: ‘/proc/37678/map_files’: Permission denied
+find: ‘/proc/37678/fdinfo’: Permission denied
+find: ‘/proc/37678/ns’: Permission denied
+find: ‘/proc/37679/task/37679/fd’: Permission denied
+find: ‘/proc/37679/task/37679/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37679/ns’: Permission denied
+find: ‘/proc/37679/task/37680/fd’: Permission denied
+find: ‘/proc/37679/task/37680/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37680/ns’: Permission denied
+find: ‘/proc/37679/task/37681/fd’: Permission denied
+find: ‘/proc/37679/task/37681/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37681/ns’: Permission denied
+find: ‘/proc/37679/task/37682/fd’: Permission denied
+find: ‘/proc/37679/task/37682/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37682/ns’: Permission denied
+find: ‘/proc/37679/task/37683/fd’: Permission denied
+find: ‘/proc/37679/task/37683/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37683/ns’: Permission denied
+find: ‘/proc/37679/task/37685/fd’: Permission denied
+find: ‘/proc/37679/task/37685/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37685/ns’: Permission denied
+find: ‘/proc/37679/task/37686/fd’: Permission denied
+find: ‘/proc/37679/task/37686/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37686/ns’: Permission denied
+find: ‘/proc/37679/task/37688/fd’: Permission denied
+find: ‘/proc/37679/task/37688/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37688/ns’: Permission denied
+find: ‘/proc/37679/task/37689/fd’: Permission denied
+find: ‘/proc/37679/task/37689/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37689/ns’: Permission denied
+find: ‘/proc/37679/task/37690/fd’: Permission denied
+find: ‘/proc/37679/task/37690/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37690/ns’: Permission denied
+find: ‘/proc/37679/task/37691/fd’: Permission denied
+find: ‘/proc/37679/task/37691/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37691/ns’: Permission denied
+find: ‘/proc/37679/task/37692/fd’: Permission denied
+find: ‘/proc/37679/task/37692/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37692/ns’: Permission denied
+find: ‘/proc/37679/task/37693/fd’: Permission denied
+find: ‘/proc/37679/task/37693/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37693/ns’: Permission denied
+find: ‘/proc/37679/task/37694/fd’: Permission denied
+find: ‘/proc/37679/task/37694/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37694/ns’: Permission denied
+find: ‘/proc/37679/task/37695/fd’: Permission denied
+find: ‘/proc/37679/task/37695/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37695/ns’: Permission denied
+find: ‘/proc/37679/task/37696/fd’: Permission denied
+find: ‘/proc/37679/task/37696/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37696/ns’: Permission denied
+find: ‘/proc/37679/task/37697/fd’: Permission denied
+find: ‘/proc/37679/task/37697/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37697/ns’: Permission denied
+find: ‘/proc/37679/task/37698/fd’: Permission denied
+find: ‘/proc/37679/task/37698/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37698/ns’: Permission denied
+find: ‘/proc/37679/task/37699/fd’: Permission denied
+find: ‘/proc/37679/task/37699/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37699/ns’: Permission denied
+find: ‘/proc/37679/task/37700/fd’: Permission denied
+find: ‘/proc/37679/task/37700/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37700/ns’: Permission denied
+find: ‘/proc/37679/task/37701/fd’: Permission denied
+find: ‘/proc/37679/task/37701/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37701/ns’: Permission denied
+find: ‘/proc/37679/task/37702/fd’: Permission denied
+find: ‘/proc/37679/task/37702/fdinfo’: Permission denied
+find: ‘/proc/37679/task/37702/ns’: Permission denied
+find: ‘/proc/37679/fd’: Permission denied
+find: ‘/proc/37679/map_files’: Permission denied
+find: ‘/proc/37679/fdinfo’: Permission denied
+find: ‘/proc/37679/ns’: Permission denied
+find: ‘/proc/37684/task/37684/fd’: Permission denied
+find: ‘/proc/37684/task/37684/fdinfo’: Permission denied
+find: ‘/proc/37684/task/37684/ns’: Permission denied
+find: ‘/proc/37684/task/37710/fd’: Permission denied
+find: ‘/proc/37684/task/37710/fdinfo’: Permission denied
+find: ‘/proc/37684/task/37710/ns’: Permission denied
+find: ‘/proc/37684/task/37711/fd’: Permission denied
+find: ‘/proc/37684/task/37711/fdinfo’: Permission denied
+find: ‘/proc/37684/task/37711/ns’: Permission denied
+find: ‘/proc/37684/task/37712/fd’: Permission denied
+find: ‘/proc/37684/task/37712/fdinfo’: Permission denied
+find: ‘/proc/37684/task/37712/ns’: Permission denied
+find: ‘/proc/37684/task/37713/fd’: Permission denied
+find: ‘/proc/37684/task/37713/fdinfo’: Permission denied
+find: ‘/proc/37684/task/37713/ns’: Permission denied
+find: ‘/proc/37684/task/37714/fd’: Permission denied
+find: ‘/proc/37684/task/37714/fdinfo’: Permission denied
+find: ‘/proc/37684/task/37714/ns’: Permission denied
+find: ‘/proc/37684/fd’: Permission denied
+find: ‘/proc/37684/map_files’: Permission denied
+find: ‘/proc/37684/fdinfo’: Permission denied
+find: ‘/proc/37684/ns’: Permission denied
+find: ‘/proc/37687/task/37687/fd’: Permission denied
+find: ‘/proc/37687/task/37687/fdinfo’: Permission denied
+find: ‘/proc/37687/task/37687/ns’: Permission denied
+find: ‘/proc/37687/task/37705/fd’: Permission denied
+find: ‘/proc/37687/task/37705/fdinfo’: Permission denied
+find: ‘/proc/37687/task/37705/ns’: Permission denied
+find: ‘/proc/37687/task/37706/fd’: Permission denied
+find: ‘/proc/37687/task/37706/fdinfo’: Permission denied
+find: ‘/proc/37687/task/37706/ns’: Permission denied
+find: ‘/proc/37687/task/37707/fd’: Permission denied
+find: ‘/proc/37687/task/37707/fdinfo’: Permission denied
+find: ‘/proc/37687/task/37707/ns’: Permission denied
+find: ‘/proc/37687/task/37708/fd’: Permission denied
+find: ‘/proc/37687/task/37708/fdinfo’: Permission denied
+find: ‘/proc/37687/task/37708/ns’: Permission denied
+find: ‘/proc/37687/task/37709/fd’: Permission denied
+find: ‘/proc/37687/task/37709/fdinfo’: Permission denied
+find: ‘/proc/37687/task/37709/ns’: Permission denied
+find: ‘/proc/37687/fd’: Permission denied
+find: ‘/proc/37687/map_files’: Permission denied
+find: ‘/proc/37687/fdinfo’: Permission denied
+find: ‘/proc/37687/ns’: Permission denied
+find: ‘/proc/37703/task/37703/fd’: Permission denied
+find: ‘/proc/37703/task/37703/fdinfo’: Permission denied
+find: ‘/proc/37703/task/37703/ns’: Permission denied
+find: ‘/proc/37703/task/37715/fd’: Permission denied
+find: ‘/proc/37703/task/37715/fdinfo’: Permission denied
+find: ‘/proc/37703/task/37715/ns’: Permission denied
+find: ‘/proc/37703/task/37716/fd’: Permission denied
+find: ‘/proc/37703/task/37716/fdinfo’: Permission denied
+find: ‘/proc/37703/task/37716/ns’: Permission denied
+find: ‘/proc/37703/task/37717/fd’: Permission denied
+find: ‘/proc/37703/task/37717/fdinfo’: Permission denied
+find: ‘/proc/37703/task/37717/ns’: Permission denied
+find: ‘/proc/37703/task/37718/fd’: Permission denied
+find: ‘/proc/37703/task/37718/fdinfo’: Permission denied
+find: ‘/proc/37703/task/37718/ns’: Permission denied
+find: ‘/proc/37703/task/37719/fd’: Permission denied
+find: ‘/proc/37703/task/37719/fdinfo’: Permission denied
+find: ‘/proc/37703/task/37719/ns’: Permission denied
+find: ‘/proc/37703/fd’: Permission denied
+find: ‘/proc/37703/map_files’: Permission denied
+find: ‘/proc/37703/fdinfo’: Permission denied
+find: ‘/proc/37703/ns’: Permission denied
+find: ‘/proc/37704/task/37704/fd’: Permission denied
+find: ‘/proc/37704/task/37704/fdinfo’: Permission denied
+find: ‘/proc/37704/task/37704/ns’: Permission denied
+find: ‘/proc/37704/task/37720/fd’: Permission denied
+find: ‘/proc/37704/task/37720/fdinfo’: Permission denied
+find: ‘/proc/37704/task/37720/ns’: Permission denied
+find: ‘/proc/37704/task/37721/fd’: Permission denied
+find: ‘/proc/37704/task/37721/fdinfo’: Permission denied
+find: ‘/proc/37704/task/37721/ns’: Permission denied
+find: ‘/proc/37704/task/37722/fd’: Permission denied
+find: ‘/proc/37704/task/37722/fdinfo’: Permission denied
+find: ‘/proc/37704/task/37722/ns’: Permission denied
+find: ‘/proc/37704/task/37723/fd’: Permission denied
+find: ‘/proc/37704/task/37723/fdinfo’: Permission denied
+find: ‘/proc/37704/task/37723/ns’: Permission denied
+find: ‘/proc/37704/task/37724/fd’: Permission denied
+find: ‘/proc/37704/task/37724/fdinfo’: Permission denied
+find: ‘/proc/37704/task/37724/ns’: Permission denied
+find: ‘/proc/37704/fd’: Permission denied
+find: ‘/proc/37704/map_files’: Permission denied
+find: ‘/proc/37704/fdinfo’: Permission denied
+find: ‘/proc/37704/ns’: Permission denied
+find: ‘/proc/58934/task/58934/fd’: Permission denied
+find: ‘/proc/58934/task/58934/fdinfo’: Permission denied
+find: ‘/proc/58934/task/58934/ns’: Permission denied
+find: ‘/proc/58934/fd’: Permission denied
+find: ‘/proc/58934/map_files’: Permission denied
+find: ‘/proc/58934/fdinfo’: Permission denied
+find: ‘/proc/58934/ns’: Permission denied
+find: ‘/proc/69033/task/69033/fd’: Permission denied
+find: ‘/proc/69033/task/69033/fdinfo’: Permission denied
+find: ‘/proc/69033/task/69033/ns’: Permission denied
+find: ‘/proc/69033/fd’: Permission denied
+find: ‘/proc/69033/map_files’: Permission denied
+find: ‘/proc/69033/fdinfo’: Permission denied
+find: ‘/proc/69033/ns’: Permission denied
+find: ‘/proc/100800/task/100800/fd’: Permission denied
+find: ‘/proc/100800/task/100800/fdinfo’: Permission denied
+find: ‘/proc/100800/task/100800/ns’: Permission denied
+find: ‘/proc/100800/fd’: Permission denied
+find: ‘/proc/100800/map_files’: Permission denied
+find: ‘/proc/100800/fdinfo’: Permission denied
+find: ‘/proc/100800/ns’: Permission denied
+find: ‘/proc/101062/task/101062/fd’: Permission denied
+find: ‘/proc/101062/task/101062/fdinfo’: Permission denied
+find: ‘/proc/101062/task/101062/ns’: Permission denied
+find: ‘/proc/101062/fd’: Permission denied
+find: ‘/proc/101062/map_files’: Permission denied
+find: ‘/proc/101062/fdinfo’: Permission denied
+find: ‘/proc/101062/ns’: Permission denied
+find: ‘/proc/101123/task/101123/fd’: Permission denied
+find: ‘/proc/101123/task/101123/fdinfo’: Permission denied
+find: ‘/proc/101123/task/101123/ns’: Permission denied
+find: ‘/proc/101123/fd’: Permission denied
+find: ‘/proc/101123/map_files’: Permission denied
+find: ‘/proc/101123/fdinfo’: Permission denied
+find: ‘/proc/101123/ns’: Permission denied
+find: ‘/proc/101304/task/101304/fd’: Permission denied
+find: ‘/proc/101304/task/101304/fdinfo’: Permission denied
+find: ‘/proc/101304/task/101304/ns’: Permission denied
+find: ‘/proc/101304/fd’: Permission denied
+find: ‘/proc/101304/map_files’: Permission denied
+find: ‘/proc/101304/fdinfo’: Permission denied
+find: ‘/proc/101304/ns’: Permission denied
+find: ‘/proc/101536/task/101536/fd’: Permission denied
+find: ‘/proc/101536/task/101536/fdinfo’: Permission denied
+find: ‘/proc/101536/task/101536/ns’: Permission denied
+find: ‘/proc/101536/fd’: Permission denied
+find: ‘/proc/101536/map_files’: Permission denied
+find: ‘/proc/101536/fdinfo’: Permission denied
+find: ‘/proc/101536/ns’: Permission denied
+find: ‘/proc/101695/task/101695/fd’: Permission denied
+find: ‘/proc/101695/task/101695/fdinfo’: Permission denied
+find: ‘/proc/101695/task/101695/ns’: Permission denied
+find: ‘/proc/101695/fd’: Permission denied
+find: ‘/proc/101695/map_files’: Permission denied
+find: ‘/proc/101695/fdinfo’: Permission denied
+find: ‘/proc/101695/ns’: Permission denied
+find: ‘/run/httpd’: Permission denied
+find: ‘/run/gdm’: Permission denied
+find: ‘/run/firewalld’: Permission denied
+find: ‘/run/udisks2’: Permission denied
+find: ‘/run/chrony’: Permission denied
+find: ‘/run/libvirt/nwfilter-binding’: Permission denied
+find: ‘/run/sudo’: Permission denied
+find: ‘/run/setroubleshoot’: Permission denied
+find: ‘/run/podman’: Permission denied
+find: ‘/run/cups/certs’: Permission denied
+find: ‘/run/cryptsetup’: Permission denied
+find: ‘/run/lvm’: Permission denied
+find: ‘/run/cloud-init’: Permission denied
+find: ‘/run/user/42’: Permission denied
+find: ‘/run/rpcbind’: Permission denied
+find: ‘/run/mdadm’: Permission denied
+find: ‘/run/lock/iscsi’: Permission denied
+find: ‘/run/lock/lvm’: Permission denied
+find: ‘/run/initramfs/log/private’: Permission denied
+find: ‘/run/systemd/resolve/netif’: Permission denied
+find: ‘/run/systemd/unit-root’: Permission denied
+find: ‘/run/systemd/inaccessible’: Permission denied
+find: ‘/sys/kernel/debug’: Permission denied
+find: ‘/sys/fs/pstore’: Permission denied
+find: ‘/sys/fs/bpf’: Permission denied
+find: ‘/etc/pki/rsyslog’: Permission denied
+find: ‘/etc/sssd’: Permission denied
+find: ‘/etc/dhcp’: Permission denied
+find: ‘/etc/polkit-1/rules.d’: Permission denied
+find: ‘/etc/polkit-1/localauthority’: Permission denied
+find: ‘/etc/grub.d’: Permission denied
+find: ‘/etc/audit’: Permission denied
+find: ‘/etc/firewalld’: Permission denied
+find: ‘/etc/sudoers.d’: Permission denied
+find: ‘/etc/nftables’: Permission denied
+find: ‘/etc/lvm/archive’: Permission denied
+find: ‘/etc/lvm/backup’: Permission denied
+find: ‘/etc/lvm/cache’: Permission denied
+find: ‘/etc/cups/ssl’: Permission denied
+find: ‘/etc/libvirt’: Permission denied
+find: ‘/root’: Permission denied
+find: ‘/var/lib/selinux/targeted’: Permission denied
+find: ‘/var/lib/selinux/final’: Permission denied
+find: ‘/var/lib/portables’: Permission denied
+find: ‘/var/lib/private’: Permission denied
+find: ‘/var/lib/tpm’: Permission denied
+find: ‘/var/lib/polkit-1’: Permission denied
+find: ‘/var/lib/NetworkManager’: Permission denied
+find: ‘/var/lib/gssproxy/clients’: Permission denied
+find: ‘/var/lib/gssproxy/rcache’: Permission denied
+find: ‘/var/lib/sss/db’: Permission denied
+find: ‘/var/lib/sss/deskprofile’: Permission denied
+find: ‘/var/lib/sss/pipes/private’: Permission denied
+find: ‘/var/lib/sss/secrets’: Permission denied
+find: ‘/var/lib/sss/keytabs’: Permission denied
+find: ‘/var/lib/setroubleshoot’: Permission denied
+find: ‘/var/lib/rhsm’: Permission denied
+find: ‘/var/lib/nfs/statd’: Permission denied
+find: ‘/var/lib/rsyslog’: Permission denied
+find: ‘/var/lib/samba/private’: Permission denied
+find: ‘/var/lib/colord/.cache’: Permission denied
+find: ‘/var/lib/udisks2’: Permission denied
+find: ‘/var/lib/machines’: Permission denied
+find: ‘/var/lib/fwupd/gnupg’: Permission denied
+find: ‘/var/lib/libvirt/boot’: Permission denied
+find: ‘/var/lib/libvirt/filesystems’: Permission denied
+find: ‘/var/lib/libvirt/images’: Permission denied
+find: ‘/var/lib/libvirt/network’: Permission denied
+find: ‘/var/lib/libvirt/qemu’: Permission denied
+find: ‘/var/lib/libvirt/swtpm’: Permission denied
+find: ‘/var/lib/gdm’: Permission denied
+find: ‘/var/lib/mlocate’: Permission denied
+find: ‘/var/lib/dav’: Permission denied
+find: ‘/var/lib/httpd’: Permission denied
+find: ‘/var/cache/ldconfig’: Permission denied
+find: ‘/var/cache/private’: Permission denied
+find: ‘/var/cache/libvirt’: Permission denied
+find: ‘/var/cache/cups’: Permission denied
+find: ‘/var/cache/httpd’: Permission denied
+find: ‘/var/log/private’: Permission denied
+find: ‘/var/log/audit’: Permission denied
+find: ‘/var/log/sssd’: Permission denied
+find: ‘/var/log/insights-client’: Permission denied
+find: ‘/var/log/samba’: Permission denied
+find: ‘/var/log/speech-dispatcher’: Permission denied
+find: ‘/var/log/libvirt’: Permission denied
+find: ‘/var/log/swtpm/libvirt/qemu’: Permission denied
+find: ‘/var/log/gdm’: Permission denied
+find: ‘/var/log/httpd’: Permission denied
+find: ‘/var/db/sudo’: Permission denied
+find: ‘/var/empty/sshd’: Permission denied
+find: ‘/var/spool/cron’: Permission denied
+find: ‘/var/spool/up2date’: Permission denied
+find: ‘/var/spool/cups’: Permission denied
+find: ‘/var/spool/at’: Permission denied
+find: ‘/var/tmp/systemd-private-12d1538ea45042e18c678eab55780684-rtkit-daemon.service-zskO1c’: Permission denied
+find: ‘/var/tmp/systemd-private-12d1538ea45042e18c678eab55780684-chronyd.service-5nkucZ’: Permission denied
+find: ‘/var/tmp/systemd-private-12d1538ea45042e18c678eab55780684-ModemManager.service-FOl0oL’: Permission denied
+find: ‘/var/tmp/systemd-private-12d1538ea45042e18c678eab55780684-colord.service-TV9jHY’: Permission denied
+find: ‘/var/tmp/systemd-private-12d1538ea45042e18c678eab55780684-fwupd.service-5sjNr0’: Permission denied
+find: ‘/var/tmp/systemd-private-12d1538ea45042e18c678eab55780684-bolt.service-HtJbC4’: Permission denied
+/var/tmp/labs/install-storage
+find: ‘/usr/share/polkit-1/rules.d’: Permission denied
+find: ‘/usr/share/selinux/targeted/default/active’: Permission denied
+find: ‘/usr/libexec/initscripts/legacy-actions/auditd’: Permission denied
+find: ‘/home/student/.local/share/containers/storage/overlay/5c6380a93dbdf7eb1623e5b82ac5e262efe5e6f7160b0210667927a5435b5ce3/diff/opt/rh/httpd24/root/var/cache/httpd’: Permission denied
+find: ‘/home/student/.local/share/containers/storage/overlay/5c6380a93dbdf7eb1623e5b82ac5e262efe5e6f7160b0210667927a5435b5ce3/diff/opt/rh/httpd24/root/var/lib/dav’: Permission denied
+find: ‘/home/student/.local/share/containers/storage/overlay/5c6380a93dbdf7eb1623e5b82ac5e262efe5e6f7160b0210667927a5435b5ce3/diff/opt/rh/httpd24/root/var/lib/httpd’: Permission denied
+find: ‘/home/devops’: Permission denied
+find: ‘/home/ocp’: Permission denied
+find: ‘/tmp/systemd-private-12d1538ea45042e18c678eab55780684-bolt.service-0fDYw2’: Permission denied
+find: ‘/tmp/systemd-private-12d1538ea45042e18c678eab55780684-rtkit-daemon.service-cEChZj’: Permission denied
+find: ‘/tmp/systemd-private-12d1538ea45042e18c678eab55780684-chronyd.service-45I865’: Permission denied
+find: ‘/tmp/systemd-private-12d1538ea45042e18c678eab55780684-ModemManager.service-AzJJiS’: Permission denied
+find: ‘/tmp/systemd-private-12d1538ea45042e18c678eab55780684-colord.service-KMgMdG’: Permission denied
+find: ‘/tmp/systemd-private-12d1538ea45042e18c678eab55780684-fwupd.service-SoS7IY’: Permission denied
+[student@workstation ~]$ firefox & 
+[1] 101731
+[student@workstation ~]$ lab auth-provider start
+
+Checking prerequisites for Guided Exercise: Configuring Identity Providers
+
+ Verify the OpenShift cluster is running:
+ · Router pods are available...................................  SUCCESS
+ · OAuth pods are available....................................  SUCCESS
+ · API pods are available......................................  SUCCESS
+ · Control plane node 'master01' is ready......................  SUCCESS
+ · Control plane node 'master02' is ready......................  SUCCESS
+ · Control plane node 'master03' is ready......................  SUCCESS
+ Checking for conflicts with existing OpenShift projects:
+ · The 'auth-provider' project is absent.......................  SUCCESS
+
+Setting up the classroom for Guided Exercise: Configuring Identity Providers
+
+ Preparing the student's workstation:
+ · Download exercise files.....................................  SUCCESS
+ · Download solution files.....................................  SUCCESS
+ Restoring authentication settings to installation defaults:
+ · No need to perform any change...............................  SUCCESS
+
+Overall start status...........................................  SUCCESS
+
+[1]+  Done                    firefox
+[student@workstation ~]$ source /usr/local/etc/ocp4.config
+[student@workstation ~]$ htpasswd -c -B -b ~/DO280/labs/auth-provider/htpasswd  admin redhat
+Adding password for user admin
+[student@workstation ~]$ htpasswd -b ~/DO280/labs/auth-provider/htpasswd  developer developer
+Adding password for user developer
+[student@workstation ~]$ cat ~/DO280/labs/auth-provider/htpasswd
+admin:$2y$05$0LiEedVVmoMeqjbE.3Z9lOd3Eo0ltTmf8pg/7vdUXatUQs3ykmpK2
+developer:$apr1$MLQHNIRA$o6HbqrLX9MJgPQuO9rKYA.
+[student@workstation ~]$ oc login -u kubeadmin -p ${RHT_OCP4_KUBEADM_PASSWD}  https://api.ocp4.example.com:6443
+Login successful.
+
+You have access to 60 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "default".
+[student@workstation ~]$ oc create secret generic localusers  --from-file htpasswd=/home/student/DO280/labs/auth-provider/htpasswd  -n openshift-config
+secret/localusers created
+[student@workstation ~]$ oc adm policy add-cluster-role-to-user  cluster-admin admin
+Warning: User 'admin' not found
+clusterrole.rbac.authorization.k8s.io/cluster-admin added: "admin"
+[student@workstation ~]$ oc get oauth cluster  -o yaml > ~/DO280/labs/auth-provider/oauth.yaml
+[student@workstation ~]$ vi ~/DO280/labs/auth-provider/oauth.yaml
+[student@workstation ~]$ oc replace -f ~/DO280/labs/auth-provider/oauth.yaml
+error: error parsing /home/student/DO280/labs/auth-provider/oauth.yaml: error converting YAML to JSON: yaml: line 35: did not find expected key
+[student@workstation ~]$ vi ~/DO280/labs/auth-provider/oauth.yaml
+[student@workstation ~]$ vi ~/DO280/labs/auth-provider/oauth.yaml
+[student@workstation ~]$ oc replace -f ~/DO280/labs/auth-provider/oauth.yaml
+oauth.config.openshift.io/cluster replaced
+[student@workstation ~]$ oc login -u admin -p redhat
+Login failed (401 Unauthorized)
+Verify you have provided correct credentials.
+[student@workstation ~]$ oc login -u admin -p redhat
+Login successful.
+
+You have access to 60 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "default".
+[student@workstation ~]$ oc get nodes
+NAME       STATUS   ROLES           AGE   VERSION
+master01   Ready    master,worker   71d   v1.19.0+b00ba52
+master02   Ready    master,worker   71d   v1.19.0+b00ba52
+master03   Ready    master,worker   71d   v1.19.0+b00ba52
+[student@workstation ~]$ oc login -u developer -p developer
+Login successful.
+
+You don't have any projects. You can try to create a new project, by running
+
+    oc new-project <projectname>
+
+[student@workstation ~]$ oc get nodes
+Error from server (Forbidden): nodes is forbidden: User "developer" cannot list resource "nodes" in API group "" at the cluster scope
+[student@workstation ~]$ oc login -u admin -p redhat
+Login successful.
+
+You have access to 60 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "default".
+[student@workstation ~]$ oc get users
+NAME        UID                                    FULL NAME   IDENTITIES
+admin       8f00c338-fd00-4aaa-8e75-885876553aab               myusers:admin
+developer   66f6dbcc-2d42-43fb-8049-c4e9b549d5ae               myusers:developer
+[student@workstation ~]$ oc get identity
+NAME                IDP NAME   IDP USER NAME   USER NAME   USER UID
+myusers:admin       myusers    admin           admin       8f00c338-fd00-4aaa-8e75-885876553aab
+myusers:developer   myusers    developer       developer   66f6dbcc-2d42-43fb-8049-c4e9b549d5ae
+[student@workstation ~]$ oc extract secret/localusers -n openshift-config  --to ~/DO280/labs/auth-provider/ --confirm
+/home/student/DO280/labs/auth-provider/htpasswd
+[student@workstation ~]$ htpasswd -b ~/DO280/labs/auth-provider/htpasswd  manager redhat
+Adding password for user manager
+[student@workstation ~]$ cat ~/DO280/labs/auth-provider/htpasswd
+admin:$2y$05$0LiEedVVmoMeqjbE.3Z9lOd3Eo0ltTmf8pg/7vdUXatUQs3ykmpK2
+developer:$apr1$MLQHNIRA$o6HbqrLX9MJgPQuO9rKYA.
+manager:$apr1$rQPq.R.l$AMOfTbNEwIsAG6poF.r9O/
+[student@workstation ~]$ oc set data secret/localusers  --from-file htpasswd=/home/student/DO280/labs/auth-provider/htpasswd  -n openshift-config
+secret/localusers data updated
+[student@workstation ~]$ oc login -u manager -p redhat
+Login successful.
+
+You don't have any projects. You can try to create a new project, by running
+
+    oc new-project <projectname>
+
+[student@workstation ~]$ oc new-project auth-provider
+Now using project "auth-provider" on server "https://api.ocp4.example.com:6443".
+
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=k8s.gcr.io/serve_hostname
+
+[student@workstation ~]$ oc login -u developer -p developer
+Login successful.
+
+You don't have any projects. You can try to create a new project, by running
+
+    oc new-project <projectname>
+
+[student@workstation ~]$ oc delete project auth-provider
+Error from server (Forbidden): projects.project.openshift.io "auth-provider" is forbidden: User "developer" cannot delete resource "projects" in API group "project.openshift.io" in the namespace "auth-provider"
+[student@workstation ~]$ oc login -u admin -p redhat
+Login successful.
+
+You have access to 61 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "default".
+[student@workstation ~]$ oc extract secret/localusers -n openshift-config  --to ~/DO280/labs/auth-provider/ --confirm 
+/home/student/DO280/labs/auth-provider/htpasswd
+[student@workstation ~]$ MANAGER_PASSWD="$(openssl rand -hex 15)"
+[student@workstation ~]$ htpasswd -b ~/DO280/labs/auth-provider/htpasswd  manager ${MANAGER_PASSWD}
+Updating password for user manager
+[student@workstation ~]$ oc set data secret/localusers  --from-file htpasswd=/home/student/DO280/labs/auth-provider/htpasswd  -n openshift-config
+secret/localusers data updated
+[student@workstation ~]$ oc login -u manager -p ${MANAGER_PASSWD}
+Login successful.
+
+You have one project on this server: "auth-provider"
+
+Using project "auth-provider".
+[student@workstation ~]$ cat /usr/local/etc/ocp4.config 
+RHT_OCP4_MASTER_API=https://api.ocp4.example.com:6443
+RHT_OCP4_WILDCARD_DOMAIN=apps.ocp4.example.com
+RHT_OCP4_NEXUS_SERVER=nexus-common.apps.ocp4.example.com
+RHT_OCP4_DEV_USER=developer
+RHT_OCP4_DEV_PASSWORD=developer
+RHT_OCP4_GITHUB_USER=soumojit011
+RHT_OCP4_QUAY_USER=soumojit011
+RHT_OCP4_USER_PASSWD=redhat
+RHT_OCP4_KUBEADM_PASSWD=waoWn-5S9VM-6cSsy-kMAyk
+[student@workstation ~]$ oc login -u admin -p redhat
+Login successful.
+
+You have access to 61 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "auth-provider".
+[student@workstation ~]$ oc extract secret/localusers -n openshift-config  --to ~/DO280/labs/auth-provider/ --confirm
+/home/student/DO280/labs/auth-provider/htpasswd
+[student@workstation ~]$ htpasswd -D ~/DO280/labs/auth-provider/htpasswd manager
+Deleting password for user manager
+[student@workstation ~]$ oc set data secret/localusers  --from-file htpasswd=/home/student/DO280/labs/auth-provider/htpasswd  -n openshift-config
+secret/localusers data updated
+[student@workstation ~]$ oc delete identity "myusers:manager"
+identity.user.openshift.io "myusers:manager" deleted
+[student@workstation ~]$ oc delete user manager
+user.user.openshift.io "manager" deleted
+[student@workstation ~]$ oc login -u manager -p ${MANAGER_PASSWD}
+Login failed (401 Unauthorized)
+Verify you have provided correct credentials.
+[student@workstation ~]$ oc get users
+NAME        UID                                    FULL NAME   IDENTITIES
+admin       8f00c338-fd00-4aaa-8e75-885876553aab               myusers:admin
+developer   66f6dbcc-2d42-43fb-8049-c4e9b549d5ae               myusers:developer
+[student@workstation ~]$ oc get identity
+NAME                IDP NAME   IDP USER NAME   USER NAME   USER UID
+myusers:admin       myusers    admin           admin       8f00c338-fd00-4aaa-8e75-885876553aab
+myusers:developer   myusers    developer       developer   66f6dbcc-2d42-43fb-8049-c4e9b549d5ae
+[student@workstation ~]$ oc extract secret/localusers -n openshift-config --to -
+# htpasswd
+admin:$2y$05$0LiEedVVmoMeqjbE.3Z9lOd3Eo0ltTmf8pg/7vdUXatUQs3ykmpK2
+developer:$apr1$MLQHNIRA$o6HbqrLX9MJgPQuO9rKYA.
+[student@workstation ~]$ oc login -u kubeadmin -p ${RHT_OCP4_KUBEADM_PASSWD}
+Login successful.
+
+You have access to 61 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "auth-provider".
+[student@workstation ~]$ oc delete project auth-provider
+project.project.openshift.io "auth-provider" deleted
+[student@workstation ~]$ oc edit oauth
+oauth.config.openshift.io/cluster edited
+[student@workstation ~]$ oc delete secret localusers -n openshift-config
+secret "localusers" deleted
+[student@workstation ~]$ oc delete user --all
+user.user.openshift.io "admin" deleted
+user.user.openshift.io "developer" deleted
+[student@workstation ~]$ oc delete identity --all
+identity.user.openshift.io "myusers:admin" deleted
+identity.user.openshift.io "myusers:developer" deleted
+[student@workstation ~]$ lab auth-provider finish
+
+Completing Guided Exercise: Configuring Identity Providers
+
+ · Remove exercise files.......................................  SUCCESS
+ · Remove solution files.......................................  SUCCESS
+
+Please use start if you wish to do the exercise again.
+
+[student@workstation ~]$ lab auth-rbac start
+
+Checking prerequisites for Guided Exercise: Defining and Applying permissions using RBAC
+
+ Verify the OpenShift cluster is running:
+ · Router pods are available...................................  SUCCESS
+ · OAuth pods are available....................................  SUCCESS
+ · API pods are available......................................  SUCCESS
+ · Control plane node 'master01' is ready......................  SUCCESS
+ · Control plane node 'master02' is ready......................  SUCCESS
+ · Control plane node 'master03' is ready......................  SUCCESS
+ Checking for conflicts with existing OpenShift projects:
+ · The 'auth-rbac' project is absent...........................  SUCCESS
+
+Setting up the classroom for Guided Exercise: Defining and Applying permissions using RBAC
+
+ · Create HTPasswd entry for 'admin'...........................  SUCCESS
+ · Create HTPasswd entry for 'leader'..........................  SUCCESS
+ · Create HTPasswd entry for 'developer'.......................  SUCCESS
+ · Create HTPasswd entry for 'qa-engineer'.....................  SUCCESS
+ · Create HTPasswd secret: 'localusers'........................  SUCCESS
+ · Add HTPasswd IdP............................................  SUCCESS
+ · Pause for creation of first oauth pod.......................  SUCCESS
+ · Pause for creation of second oauth pod......................  SUCCESS
+ · Wait up to 1 minute for oauth pod containers to be ready....  SUCCESS
+ · Delete all previous users...................................  SUCCESS
+ · Delete all previous identities..............................  SUCCESS
+ · Pause 5 seconds before validating authentication............  SUCCESS
+ · Validate 'admin' can log in with password 'redhat'..........  SUCCESS
+ · Validate 'leader' can log in with password 'redhat'.........  SUCCESS
+ · Validate 'developer' can log in with password 'developer'...  SUCCESS
+ · Validate 'qa-engineer' can log in with password 'redhat'....  SUCCESS
+
+Overall start status...........................................  SUCCESS
+
+[student@workstation ~]$ oc login -u admin -p redhat  https://api.ocp4.example.com:6443
+Login successful.
+
+You have access to 60 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "default".
+[student@workstation ~]$ oc get clusterrolebinding -o wide  | grep -E 'NAME|self-provisioners'
+NAME                                                                        ROLE                                                                                    AGE   USERS                                                            GROUPS                                         SERVICEACCOUNTS
+self-provisioners                                                           ClusterRole/self-provisioner                                                            71d                                                                    system:authenticated:oauth                     
+[student@workstation ~]$ oc describe clusterrolebindings self-provisioners
+Name:         self-provisioners
+Labels:       <none>
+Annotations:  rbac.authorization.kubernetes.io/autoupdate: true
+Role:
+  Kind:  ClusterRole
+  Name:  self-provisioner
+Subjects:
+  Kind   Name                        Namespace
+  ----   ----                        ---------
+  Group  system:authenticated:oauth  
+[student@workstation ~]$ oc adm policy remove-cluster-role-from-group  self-provisioner system:authenticated:oauth
+Warning: Your changes may get lost whenever a master is restarted, unless you prevent reconciliation of this rolebinding using the following command: oc annotate clusterrolebinding.rbac self-provisioners 'rbac.authorization.kubernetes.io/autoupdate=false' --overwrite
+clusterrole.rbac.authorization.k8s.io/self-provisioner removed: "system:authenticated:oauth"
+[student@workstation ~]$ oc describe clusterrolebindings self-provisioners
+Error from server (NotFound): clusterrolebindings.rbac.authorization.k8s.io "self-provisioners" not found
+[student@workstation ~]$ oc get clusterrolebinding -o wide \
+> ^C
+[student@workstation ~]$ oc get clusterrolebinding -o wide  | grep -E 'NAME|self-provisioner't
+NAME                                                                        ROLE                                                                                    AGE   USERS                                                            GROUPS                                         SERVICEACCOUNTS
+[student@workstation ~]$ oc login -u leader -p redhat
+Login successful.
+
+You don't have any projects. Contact your system administrator to request a project.
+[student@workstation ~]$ oc new-project test
+Error from server (Forbidden): You may not request a new project via this API.
+[student@workstation ~]$ oc login -u admin -p redhat
+Login successful.
+
+You have access to 60 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "default".
+[student@workstation ~]$ oc new-project auth-rbac
+Now using project "auth-rbac" on server "https://api.ocp4.example.com:6443".
+
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=k8s.gcr.io/serve_hostname
+
+[student@workstation ~]$ oc policy add-role-to-user admin leader
+clusterrole.rbac.authorization.k8s.io/admin added: "leader"
+[student@workstation ~]$ oc adm groups new dev-group
+group.user.openshift.io/dev-group created
+[student@workstation ~]$ oc adm groups add-users dev-group developer
+group.user.openshift.io/dev-group added: "developer"
+[student@workstation ~]$ oc adm groups new qa-group
+group.user.openshift.io/qa-group created
+[student@workstation ~]$ oc adm groups add-users qa-group qa-engineer
+group.user.openshift.io/qa-group added: "qa-engineer"
+[student@workstation ~]$ oc get groups
+NAME        USERS
+dev-group   developer
+qa-group    qa-engineer
+[student@workstation ~]$ oc login -u leader -p redhat
+Login successful.
+
+You have one project on this server: "auth-rbac"
+
+Using project "auth-rbac".
+[student@workstation ~]$ oc policy add-role-to-group edit dev-group
+clusterrole.rbac.authorization.k8s.io/edit added: "dev-group"
+[student@workstation ~]$ oc policy add-role-to-group view qa-group
+clusterrole.rbac.authorization.k8s.io/view added: "qa-group"
+[student@workstation ~]$ oc get rolebindings -o wide
+NAME                    ROLE                               AGE     USERS    GROUPS                             SERVICEACCOUNTS
+admin                   ClusterRole/admin                  4m      admin                                       
+admin-0                 ClusterRole/admin                  3m28s   leader                                      
+edit                    ClusterRole/edit                   35s              dev-group                          
+system:deployers        ClusterRole/system:deployer        3m59s                                               auth-rbac/deployer
+system:image-builders   ClusterRole/system:image-builder   3m59s                                               auth-rbac/builder
+system:image-pullers    ClusterRole/system:image-puller    4m               system:serviceaccounts:auth-rbac   
+view                    ClusterRole/view                   15s              qa-group                           
+[student@workstation ~]$ oc login -u developer -p developer
+Login successful.
+
+You have one project on this server: "auth-rbac"
+
+Using project "auth-rbac".
+[student@workstation ~]$ oc new-app --name httpd httpd:2.4
+--> Found image 47f6a8d (3 months old) in image stream "openshift/httpd" under tag "2.4" for "httpd:2.4"
+
+    Apache httpd 2.4 
+    ---------------- 
+    Apache httpd 2.4 available as container, is a powerful, efficient, and extensible web server. Apache supports a variety of features, many implemented as compiled modules which extend the core functionality. These can range from server-side programming language support to authentication schemes. Virtual hosting allows one Apache installation to serve many different Web sites.
+
+    Tags: builder, httpd, httpd24
+
+
+--> Creating resources ...
+    imagestreamtag.image.openshift.io "httpd:2.4" created
+    deployment.apps "httpd" created
+    service "httpd" created
+--> Success
+    Application is not exposed. You can expose services to the outside world by executing one or more of the commands below:
+     'oc expose service/httpd' 
+    Run 'oc status' to view your app.
+[student@workstation ~]$ oc policy add-role-to-user edit qa-engineer
+Error from server (Forbidden): rolebindings.rbac.authorization.k8s.io is forbidden: User "developer" cannot list resource "rolebindings" in API group "rbac.authorization.k8s.io" in the namespace "auth-rbac"
+[student@workstation ~]$ oc login -u qa-engineer -p redhat
+Login successful.
+
+You have one project on this server: "auth-rbac"
+
+Using project "auth-rbac".
+[student@workstation ~]$ oc scale deployment httpd --replicas 3
+Error from server (Forbidden): deployments.apps "httpd" is forbidden: User "qa-engineer" cannot patch resource "deployments/scale" in API group "apps" in the namespace "auth-rbac"
+[student@workstation ~]$ oc login -u admin -p redhat
+Login successful.
+
+You have access to 61 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "auth-rbac".
+[student@workstation ~]$ oc adm policy add-cluster-role-to-group  --rolebinding-name self-provisioners  self-provisioner system:authenticated:oauth
+Warning: Group 'system:authenticated:oauth' not found
+clusterrole.rbac.authorization.k8s.io/self-provisioner added: "system:authenticated:oauth"
+[student@workstation ~]$ lab auth-rbac finish
+
+Completing Guided Exercise: Defining and Applying permissions using RBAC
+
+ · Delete OpenShift project 'auth-rbac'........................  SUCCESS
+ · Wait for project 'auth-rbac' to be gone.....................  SUCCESS
+ · Remove group 'dev-group'....................................  SUCCESS
+ · Remove group 'qa-group'.....................................  SUCCESS
+ · Delete HTPasswd entry for 'qa-engineer'.....................  SUCCESS
+ · Update the 'localusers' secret data.........................  SUCCESS
+ · Remove user 'qa-engineer'...................................  SUCCESS
+ · Remove identity 'localusers:qa-engineer'....................  SUCCESS
+
+Please use start if you wish to do the exercise again.
+
+[student@workstation ~]$ 
+[student@workstation ~]$ lab authorization-secrets start
+
+Checking prerequisites for Guided Exercise: Managing Sensitive Information With Secrets
+
+ Verify the OpenShift cluster is running:
+ · Router pods are available...................................  SUCCESS
+ · OAuth pods are available....................................  SUCCESS
+ · API pods are available......................................  SUCCESS
+ · Control plane node 'master01' is ready......................  SUCCESS
+ · Control plane node 'master02' is ready......................  SUCCESS
+ · Control plane node 'master03' is ready......................  SUCCESS
+ Checking for conflicts with existing OpenShift projects:
+ · The 'authorization-secrets' project is absent...............  SUCCESS
+
+Setting up the classroom for Guided Exercise: Managing Sensitive Information With Secrets
+
+ · Validate 'admin' can log in with password 'redhat'..........  SUCCESS
+ · Validate 'leader' can log in with password 'redhat'.........  SUCCESS
+ · Validate 'developer' can log in with password 'developer'...  SUCCESS
+
+Overall start status...........................................  SUCCESS
+
+[student@workstation ~]$ oc login -u developer -p developer  https://api.ocp4.example.com:6443
+Login successful.
+
+You don't have any projects. You can try to create a new project, by running
+
+    oc new-project <projectname>
+
+[student@workstation ~]$ oc new-project authorization-secrets
+Now using project "authorization-secrets" on server "https://api.ocp4.example.com:6443".
+
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=k8s.gcr.io/serve_hostname
+
+[student@workstation ~]$ oc create secret generic mysql  --from-literal user=myuser --from-literal password=redhat123  --from-literal database=test_secrets --from-literal hostname=mysql
+secret/mysql created
+[student@workstation ~]$ oc new-app --name mysql  --docker-image registry.redhat.io/rhel8/mysql-80:1
+--> Found container image 09887d8 (8 days old) from registry.redhat.io for "registry.redhat.io/rhel8/mysql-80:1"
+
+    MySQL 8.0 
+    --------- 
+    MySQL is a multi-user, multi-threaded SQL database server. The container image provides a containerized packaging of the MySQL mysqld daemon and client application. The mysqld server daemon accepts connections from clients and provides access to content from MySQL databases on behalf of the clients.
+
+    Tags: database, mysql, mysql80, mysql-80
+
+    * An image stream tag will be created as "mysql:1" that will track this image
+
+--> Creating resources ...
+    imagestream.image.openshift.io "mysql" created
+    deployment.apps "mysql" created
+    service "mysql" created
+--> Success
+    Application is not exposed. You can expose services to the outside world by executing one or more of the commands below:
+     'oc expose service/mysql' 
+    Run 'oc status' to view your app.
+[student@workstation ~]$ oc get pods -w
+NAME                     READY   STATUS             RESTARTS   AGE
+mysql-77b97c668f-sp6r2   0/1     CrashLoopBackOff   1          13s
+mysql-77b97c668f-sp6r2   0/1     Error              2          19s
+^C[student@workstation ~]$ oc set env deployment/mysql --from secret/mysql  --prefix MYSQL
+deployment.apps/mysql updated
+[student@workstation ~]$ oc set volume deployment/mysql --add --type secret  --mount-path /run/secrets/mysql --secret-name mysql
+info: Generated volume name: volume-2mvmn
+deployment.apps/mysql volume updated
+[student@workstation ~]$ oc get pods
+NAME                     READY   STATUS    RESTARTS   AGE
+mysql-7d7d8ff785-zqh2d   1/1     Running   3          47s
+[student@workstation ~]$ oc rsh mysql-7d7d8ff785-zqh2d
+error: unable to upgrade connection: container not found ("mysql")
+[student@workstation ~]$ oc get pods
+NAME                     READY   STATUS             RESTARTS   AGE
+mysql-7d7d8ff785-zqh2d   0/1     CrashLoopBackOff   5          3m36s
+[student@workstation ~]$ oc get pods
+NAME                     READY   STATUS             RESTARTS   AGE
+mysql-7d7d8ff785-zqh2d   0/1     CrashLoopBackOff   5          3m42s
+[student@workstation ~]$ oc get pods
+NAME                     READY   STATUS             RESTARTS   AGE
+mysql-7d7d8ff785-zqh2d   0/1     CrashLoopBackOff   5          4m10s
+[student@workstation ~]$ oc get pods
+NAME                     READY   STATUS             RESTARTS   AGE
+mysql-7d7d8ff785-zqh2d   0/1     CrashLoopBackOff   5          4m46s
+[student@workstation ~]$ oc get pods
+NAME                     READY   STATUS             RESTARTS   AGE
+mysql-7d7d8ff785-zqh2d   0/1     CrashLoopBackOff   6          6m16s
+[student@workstation ~]$ oc describe po mysql-7d7d8ff785-zqh2d
+Name:         mysql-7d7d8ff785-zqh2d
+Namespace:    authorization-secrets
+Priority:     0
+Node:         master02/192.168.50.11
+Start Time:   Thu, 23 Sep 2021 23:31:50 -0400
+Labels:       deployment=mysql
+              pod-template-hash=7d7d8ff785
+Annotations:  k8s.v1.cni.cncf.io/network-status:
+                [{
+                    "name": "",
+                    "interface": "eth0",
+                    "ips": [
+                        "10.9.0.109"
+                    ],
+                    "default": true,
+                    "dns": {}
+                }]
+              k8s.v1.cni.cncf.io/networks-status:
+                [{
+                    "name": "",
+                    "interface": "eth0",
+                    "ips": [
+                        "10.9.0.109"
+                    ],
+                    "default": true,
+                    "dns": {}
+                }]
+              openshift.io/generated-by: OpenShiftNewApp
+              openshift.io/scc: restricted
+Status:       Running
+IP:           10.9.0.109
+IPs:
+  IP:           10.9.0.109
+Controlled By:  ReplicaSet/mysql-7d7d8ff785
+Containers:
+  mysql:
+    Container ID:   cri-o://8ed487c1b386543aa977da3671c0c70122a4b49cd9db9501cb383505f7a962e9
+    Image:          registry.redhat.io/rhel8/mysql-80@sha256:05a395a42379c56261ee0694975c5643e301d36f2d77d9241d9a1fe89899f341
+    Image ID:       registry.redhat.io/rhel8/mysql-80@sha256:05a395a42379c56261ee0694975c5643e301d36f2d77d9241d9a1fe89899f341
+    Port:           3306/TCP
+    Host Port:      0/TCP
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Thu, 23 Sep 2021 23:42:25 -0400
+      Finished:     Thu, 23 Sep 2021 23:42:25 -0400
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Thu, 23 Sep 2021 23:37:23 -0400
+      Finished:     Thu, 23 Sep 2021 23:37:23 -0400
+    Ready:          False
+    Restart Count:  7
+    Environment:
+      MYSQLDATABASE:  <set to the key 'database' in secret 'mysql'>  Optional: false
+      MYSQLHOSTNAME:  <set to the key 'hostname' in secret 'mysql'>  Optional: false
+      MYSQLPASSWORD:  <set to the key 'password' in secret 'mysql'>  Optional: false
+      MYSQLUSER:      <set to the key 'user' in secret 'mysql'>      Optional: false
+    Mounts:
+      /run/secrets/mysql from volume-2mvmn (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-lsvgg (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             False 
+  ContainersReady   False 
+  PodScheduled      True 
+Volumes:
+  volume-2mvmn:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  mysql
+    Optional:    false
+  default-token-lsvgg:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-lsvgg
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason          Age                 From               Message
+  ----     ------          ----                ----               -------
+  Normal   Scheduled       10m                 default-scheduler  Successfully assigned authorization-secrets/mysql-7d7d8ff785-zqh2d to master02
+  Normal   AddedInterface  10m                 multus             Add eth0 [10.9.0.109/23]
+  Normal   Pulled          9m9s (x5 over 10m)  kubelet            Container image "registry.redhat.io/rhel8/mysql-80@sha256:05a395a42379c56261ee0694975c5643e301d36f2d77d9241d9a1fe89899f341" already present on machine
+  Normal   Created         9m9s (x5 over 10m)  kubelet            Created container mysql
+  Normal   Started         9m9s (x5 over 10m)  kubelet            Started container mysql
+  Warning  BackOff         28s (x47 over 10m)  kubelet            Back-off restarting failed container
+[student@workstation ~]$ oc get pods
+NAME                     READY   STATUS             RESTARTS   AGE
+mysql-7d7d8ff785-zqh2d   0/1     CrashLoopBackOff   7          13m
+[student@workstation ~]$ oc get secret/mysql -o yaml 
+apiVersion: v1
+data:
+  database: dGVzdF9zZWNyZXRz
+  hostname: bXlzcWw=
+  password: cmVkaGF0MTIz
+  user: bXl1c2Vy
+kind: Secret
+metadata:
+  creationTimestamp: "2021-09-24T03:29:06Z"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:data:
+        .: {}
+        f:database: {}
+        f:hostname: {}
+        f:password: {}
+        f:user: {}
+      f:type: {}
+    manager: kubectl-create
+    operation: Update
+    time: "2021-09-24T03:29:06Z"
+  name: mysql
+  namespace: authorization-secrets
+  resourceVersion: "1951217"
+  selfLink: /api/v1/namespaces/authorization-secrets/secrets/mysql
+  uid: 14bc7382-81ed-4e0c-af8c-55dd0b090d94
+type: Opaque
+[student@workstation ~]$ oc edit deployment
+Edit cancelled, no changes made.
+[student@workstation ~]$ oc get deployment
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE
+mysql   0/1     1            0           17m
+[student@workstation ~]$ oc edit deployment mysql
+deployment.apps/mysql edited
+[student@workstation ~]$ oc get pods 
+NAME                     READY   STATUS        RESTARTS   AGE
+mysql-5675b99fd5-2f2qm   1/1     Running       0          6s
+mysql-7d7d8ff785-zqh2d   0/1     Terminating   8          17m
+[student@workstation ~]$ oc rsh mysql-5675b99fd5-2f2qm
+sh-4.4$ mysql -u myuser --password=redhat123 test_secrets -e 'show databases;'
+mysql: [Warning] Using a password on the command line interface can be insecure.
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| test_secrets       |
++--------------------+
+sh-4.4$ df -h | grep mysql
+tmpfs                                 7.9G   16K  7.9G   1% /run/secrets/mysql
+sh-4.4$ for FILE in $(ls /run/secrets/mysql) do echo "${FILE}: $(cat /run/secrets/mysql/${FILE})" done
+> 
+> ^C
+sh-4.4$ for FILE in $(ls /run/secrets/mysql) do echo "${FILE}: $(cat /run/secrets/mysql/${FILE})" done; 
+> ^C
+sh-4.4$ [student@workstation ~]$ 
+[student@workstation ~]$ oc rsh mysql-5675b99fd5-2f2qm
+sh-4.4$ for FILE in $(ls /run/secrets/mysql) do echo "${FILE}: $(cat /run/secrets/mysql/${FILE})" done
+> ^C
+sh-4.4$ for FILE in $(ls /run/secrets/mysql) do echo "${FILE}: $(cat /run/secrets/mysql/${FILE})"     
+> ^C
+sh-4.4$ for FILE in $(ls /run/secrets/mysql)
+> > do
+sh: syntax error near unexpected token `>'
+sh-4.4$ > echo "${FILE}: $(cat /run/secrets/mysql/${FILE})"
+cat: /run/secrets/mysql/: Is a directory
+sh: : : command not found
+sh-4.4$ > done
+sh-4.4$ exit
+exit
+[student@workstation ~]$ oc new-app --name quotes  --docker-image quay.io/redhattraining/famous-quotes:2.1
+--> Found container image 7ff1a7b (11 months old) from quay.io for "quay.io/redhattraining/famous-quotes:2.1"
+
+    Quotes 2.1 
+    ---------- 
+    Famous Quotes is a PoC application for Go and MySQL
+
+    Tags: poc, mysql, golang
+
+    * An image stream tag will be created as "quotes:2.1" that will track this image
+
+--> Creating resources ...
+    imagestream.image.openshift.io "quotes" created
+    deployment.apps "quotes" created
+    service "quotes" created
+--> Success
+    Application is not exposed. You can expose services to the outside world by executing one or more of the commands below:
+     'oc expose service/quotes' 
+    Run 'oc status' to view your app.
+[student@workstation ~]$ oc get pods -l deployment=quotes -w
+NAME                      READY   STATUS              RESTARTS   AGE
+quotes-64bdddd75b-fmdtj   0/1     ContainerCreating   0          22s
+quotes-64bdddd75b-fmdtj   0/1     Error               0          31s
+quotes-64bdddd75b-fmdtj   0/1     Error               1          32s
+quotes-64bdddd75b-fmdtj   0/1     CrashLoopBackOff    1          33s
+^C[student@workstation ~]$ oc set env deployment/quotes --from secret/mysql  --prefix QUOTES_
+deployment.apps/quotes updated
+[student@workstation ~]$ oc get pods -l deployment=quotes
+NAME                      READY   STATUS    RESTARTS   AGE
+quotes-7c7b9c7b57-6jsvl   1/1     Running   0          24s
+[student@workstation ~]$ oc logs quotes-7c7b9c7b57-6jsvl | head -n2
+2021/09/24 04:03:06 Connecting to the database: myuser:redhat123@tcp(mysql:3306)/test_secrets
+2021/09/24 04:03:06 Database connection OK
+[student@workstation ~]$ oc expose service quotes  --hostname quotes.apps.ocp4.example.com
+route.route.openshift.io/quotes exposed
+[student@workstation ~]$ oc get route quotes
+NAME     HOST/PORT                      PATH   SERVICES   PORT       TERMINATION   WILDCARD
+quotes   quotes.apps.ocp4.example.com          quotes     8000-tcp                 None
+[student@workstation ~]$ curl -s  http://quotes.apps.ocp4.example.com/env | grep QUOTES_
+                <li>QUOTES_USER: myuser </li>
+                <li>QUOTES_PASSWORD: redhat123 </li>
+                <li>QUOTES_DATABASE: test_secrets</li>
+                <li>QUOTES_HOST: mysql</li>
+[student@workstation ~]$ curl -s http://quotes.apps.ocp4.example.com/status
+Database connection OK
+[student@workstation ~]$ oc get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+mysql-5675b99fd5-2f2qm    1/1     Running   0          18m
+quotes-7c7b9c7b57-6jsvl   1/1     Running   0          4m34s
+[student@workstation ~]$ oc rsh mysql-5675b99fd5-2f2qm 
+sh-4.4$ for FILE in $(ls /run/secrets/mysql)
+> do
+> echo "${FILE}: $(cat /run/secrets/mysql/${FILE})"
+> done
+database: test_secrets
+hostname: mysql
+password: redhat123
+user: myuser
+sh-4.4$ for FILE in $(ls /run/secrets/mysql); do echo "${FILE}: $(cat /run/secrets/mysql/${FILE})"; done
+database: test_secrets
+hostname: mysql
+password: redhat123
+user: myuser
+sh-4.4$ exit
+exit
+[student@workstation ~]$ curl -s http://quotes.apps.ocp4.example.com/random
+2: Happiness depends upon ourselves.
+- Aristotle
+[student@workstation ~]$ oc delete project authorization-secrets
+project.project.openshift.io "authorization-secrets" deleted
+[student@workstation ~]$ lab authorization-secrets finish
+
+Completing Guided Exercise: Managing Sensitive Information With Secrets
+
+
+Please use start if you wish to do the exercise again.
+
+[student@workstation ~]$ lab authorization-scc start
+
+Checking prerequisites for Guided Exercise: Controlling Application Permissions with Security Context Constraints
+
+ Verify the OpenShift cluster is running:
+ · Router pods are available...................................  SUCCESS
+ · OAuth pods are available....................................  SUCCESS
+ · API pods are available......................................  SUCCESS
+ · Control plane node 'master01' is ready......................  SUCCESS
+ · Control plane node 'master02' is ready......................  SUCCESS
+ · Control plane node 'master03' is ready......................  SUCCESS
+ Checking for conflicts with existing OpenShift projects:
+ · The 'authorization-scc' project is absent...................  SUCCESS
+
+Setting up the classroom for Guided Exercise: Controlling Application Permissions with Security Context Constraints
+
+ · Validate 'admin' can log in with password 'redhat'..........  SUCCESS
+ · Validate 'leader' can log in with password 'redhat'.........  SUCCESS
+ · Validate 'developer' can log in with password 'developer'...  SUCCESS
+
+Overall start status...........................................  SUCCESS
+
+[student@workstation ~]$ oc login -u developer -p developer  https://api.ocp4.example.com:6443
+Login successful.
+
+You don't have any projects. You can try to create a new project, by running
+
+    oc new-project <projectname>
+
+[student@workstation ~]$ oc new-project authorization-scc
+Now using project "authorization-scc" on server "https://api.ocp4.example.com:6443".
+
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=k8s.gcr.io/serve_hostname
+
+[student@workstation ~]$ oc new-app --name gitlab  --docker-image quay.io/redhattraining/gitlab-ce:8.4.3-ce.0
+--> Found container image a26371b (5 years old) from quay.io for "quay.io/redhattraining/gitlab-ce:8.4.3-ce.0"
+
+    * An image stream tag will be created as "gitlab:8.4.3-ce.0" that will track this image
+
+--> Creating resources ...
+    imagestream.image.openshift.io "gitlab" created
+    deployment.apps "gitlab" created
+    service "gitlab" created
+--> Success
+    Application is not exposed. You can expose services to the outside world by executing one or more of the commands below:
+     'oc expose service/gitlab' 
+    Run 'oc status' to view your app.
+[student@workstation ~]$ oc get pods
+NAME                      READY   STATUS              RESTARTS   AGE
+gitlab-7dc4b9898d-vvd8c   0/1     ContainerCreating   0          12s
+[student@workstation ~]$ oc logs pod/gitlab-7dc4b9898d-vvd8c
+Error from server (BadRequest): container "gitlab" in pod "gitlab-7dc4b9898d-vvd8c" is waiting to start: ContainerCreating
+[student@workstation ~]$ oc get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+gitlab-7dc4b9898d-vvd8c   1/1     Running   0          61s
+[student@workstation ~]$ oc logs pod/gitlab-7dc4b9898d-vvd8c
+Thank you for using GitLab Docker Image!
+Current version: gitlab-ce=8.4.3-ce.0
+
+Configure GitLab for your system by editing /etc/gitlab/gitlab.rb file
+And restart this container to reload settings.
+To do it use docker exec:
+
+  docker exec -it gitlab vim /etc/gitlab/gitlab.rb
+  docker restart gitlab
+
+For a comprehensive list of configuration options please see the Omnibus GitLab readme
+https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/README.md
+
+If this container fails to start due to permission problems try to fix it by executing:
+
+  docker exec -it gitlab update-permissions
+  docker restart gitlab
+
+[student@workstation ~]$ oc login -u admin -p redhat
+Login successful.
+
+You have access to 61 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "authorization-scc".
+[student@workstation ~]$ oc get pod/gitlab-7dc4b9898d-vvd8c -o yaml  | oc adm policy scc-subject-review -f -
+RESOURCE                      ALLOWED BY   
+Pod/gitlab-7dc4b9898d-vvd8c   anyuid       
+[student@workstation ~]$ oc create sa gitlab-sa
+serviceaccount/gitlab-sa created
+[student@workstation ~]$ oc adm policy add-scc-to-user anyuid -z gitlab-sa
+clusterrole.rbac.authorization.k8s.io/system:openshift:scc:anyuid added: "gitlab-sa"
+[student@workstation ~]$ oc login -u developer -p developer
+Login successful.
+
+You have one project on this server: "authorization-scc"
+
+Using project "authorization-scc".
+[student@workstation ~]$ oc set serviceaccount deployment/gitlab gitlab-sa
+deployment.apps/gitlab serviceaccount updated
+[student@workstation ~]$ oc get pods
+NAME                      READY   STATUS        RESTARTS   AGE
+gitlab-7b86c4554b-kt5zl   1/1     Running       0          13s
+gitlab-7dc4b9898d-vvd8c   0/1     Terminating   4          4m6s
+[student@workstation ~]$ oc get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+gitlab-7b86c4554b-kt5zl   1/1     Running   0          23s
+[student@workstation ~]$ oc expose service/gitlab --port 80  --hostname gitlab.apps.ocp4.example.com
+route.route.openshift.io/gitlab exposed
+[student@workstation ~]$ loc get routes
+bash: loc: command not found...
+[student@workstation ~]$ oc get routes
+NAME     HOST/PORT                      PATH   SERVICES   PORT   TERMINATION   WILDCARD
+gitlab   gitlab.apps.ocp4.example.com          gitlab     80                   None
+[student@workstation ~]$ curl -s  http://gitlab.apps.ocp4.example.com/users/sign_in | grep '<title>'
+<title>Sign in · GitLab</title>
+[student@workstation ~]$ oc delete project authorization-scc
+project.project.openshift.io "authorization-scc" deleted
+[student@workstation ~]$ lab authorization-scc finish
+
+Completing Guided Exercise: Controlling Application Permissions with Security Context Constraints
+
+
+Please use start if you wish to do the exercise again.
+
+[student@workstation ~]$ lab authorization-review start
+
+Checking prerequisites for Lab: Configuring Application Security
+
+ Verify the OpenShift cluster is running:
+ · Router pods are available...................................  SUCCESS
+ · OAuth pods are available....................................  SUCCESS
+ · API pods are available......................................  SUCCESS
+ · Control plane node 'master01' is ready......................  SUCCESS
+ · Control plane node 'master02' is ready......................  SUCCESS
+ · Control plane node 'master03' is ready......................  SUCCESS
+ Checking for conflicts with existing OpenShift projects:
+ · The 'authorization-review' project is absent................  SUCCESS
+
+Setting up the classroom for Lab: Configuring Application Security
+
+ · Validate 'admin' can log in with password 'redhat'..........  SUCCESS
+ · Validate 'leader' can log in with password 'redhat'.........  SUCCESS
+ · Validate 'developer' can log in with password 'developer'...  SUCCESS
+ · Removing the 'anyuid' SCC cluster role binding..............  SUCCESS
+
+Overall start status...........................................  SUCCESS
+
+[student@workstation ~]$ oc login -u developer -p developer  https://api.ocp4.example.com:6443
+Login successful.
+
+You don't have any projects. You can try to create a new project, by running
+
+    oc new-project <projectname>
+
+[student@workstation ~]$ oc new-project authorization-review
+Now using project "authorization-review" on server "https://api.ocp4.example.com:6443".
+
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=k8s.gcr.io/serve_hostname
+
+[student@workstation ~]$ oc create secret generic review-secret  --from-literal user=wpuser --from-literal password=redhat123  --from-literal database=wordpress
+secret/review-secret created
+[student@workstation ~]$ oc new-app --name mysql  --docker-image registry.redhat.io/rhel8/mysql-80:1
+--> Found container image 09887d8 (8 days old) from registry.redhat.io for "registry.redhat.io/rhel8/mysql-80:1"
+
+    MySQL 8.0 
+    --------- 
+    MySQL is a multi-user, multi-threaded SQL database server. The container image provides a containerized packaging of the MySQL mysqld daemon and client application. The mysqld server daemon accepts connections from clients and provides access to content from MySQL databases on behalf of the clients.
+
+    Tags: database, mysql, mysql80, mysql-80
+
+    * An image stream tag will be created as "mysql:1" that will track this image
+
+--> Creating resources ...
+    imagestream.image.openshift.io "mysql" created
+    deployment.apps "mysql" created
+    service "mysql" created
+--> Success
+    Application is not exposed. You can expose services to the outside world by executing one or more of the commands below:
+     'oc expose service/mysql' 
+    Run 'oc status' to view your app.
+[student@workstation ~]$ oc set env deployment/mysql --prefix MYSQL_  --from secret/review-secret
+deployment.apps/mysql updated
+[student@workstation ~]$ watch oc get pods
+[student@workstation ~]$ oc get pods
+NAME                     READY   STATUS    RESTARTS   AGE
+mysql-6cf6ddf8fd-zsjbp   1/1     Running   0          38s
+[student@workstation ~]$ oc new-app --name wordpress  --docker-image quay.io/redhattraining/wordpress:5.7-php7.4-apache  -e WORDPRESS_DB_HOST=mysql  -e WORDPRESS_DB_NAME=wordpress  -e WORDPRESS_TITLE=auth-review  -e WORDPRESS_USER=wpuser  -e WORDPRESS_PASSWORD=redhat123  -e WORDPRESS_EMAIL=student@redhat.com  -e WORDPRESS_URL=wordpress-review.apps.ocp4.example.com
+--> Found container image 4d3c70b (2 months old) from quay.io for "quay.io/redhattraining/wordpress:5.7-php7.4-apache"
+
+    * An image stream tag will be created as "wordpress:5.7-php7.4-apache" that will track this image
+
+--> Creating resources ...
+    imagestream.image.openshift.io "wordpress" created
+    deployment.apps "wordpress" created
+    service "wordpress" created
+--> Success
+    Application is not exposed. You can expose services to the outside world by executing one or more of the commands below:
+     'oc expose service/wordpress' 
+    Run 'oc status' to view your app.
+[student@workstation ~]$ oc set env deployment/wordpress  --prefix WORDPRESS_DB_ --from secret/review-secret
+deployment.apps/wordpress updated
+[student@workstation ~]$ watch oc get pods -l deployment=wordpress
+[student@workstation ~]$ oc get pods
+NAME                       READY   STATUS    RESTARTS   AGE
+mysql-6cf6ddf8fd-zsjbp     1/1     Running   0          4m7s
+wordpress-c5bb48f5-tzn4z   0/1     Error     2          65s
+[student@workstation ~]$ oc logs wordpress-c5bb48f5-tzn4z 
+apache2-foreground
+Checking if WordPress is installed
+WordPress is already installed
+AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 10.10.1.182. Set the 'ServerName' directive globally to suppress this message
+(13)Permission denied: AH00072: make_sock: could not bind to address [::]:80
+(13)Permission denied: AH00072: make_sock: could not bind to address 0.0.0.0:80
+no listening sockets available, shutting down
+AH00015: Unable to open logs
+[student@workstation ~]$ oc login -u admin -p redhat
+Login successful.
+
+You have access to 61 projects, the list has been suppressed. You can list all projects with ' projects'
+
+Using project "authorization-review".
+[student@workstation ~]$ oc get pod/wordpress-68c49c9d4-wq46g -o yaml \
+> ^C
+[student@workstation ~]$ oc get pod/wordpress-c5bb48f5-tzn4z -o yaml  | oc adm policy scc-subject-review -f -
+RESOURCE                       ALLOWED BY   
+Pod/wordpress-c5bb48f5-tzn4z   anyuid       
+[student@workstation ~]$ oc create serviceaccount wordpress-sa
+serviceaccount/wordpress-sa created
+[student@workstation ~]$ oc adm policy add-scc-to-user anyuid -z wordpress-sa
+clusterrole.rbac.authorization.k8s.io/system:openshift:scc:anyuid added: "wordpress-sa"
+[student@workstation ~]$ oc set serviceaccount deployment/wordpress  wordpress-sa
+deployment.apps/wordpress serviceaccount updated
+[student@workstation ~]$ watch oc get pods -l deployment=wordpress
+[student@workstation ~]$ oc get pods -l deployment=wordpress
+NAME                        READY   STATUS    RESTARTS   AGE
+wordpress-d8cdd67c9-7k9kw   1/1     Running   0          37s
+[student@workstation ~]$ oc expose service/wordpress  --hostname wordpress-review.apps.ocp4.example.com
+route.route.openshift.io/wordpress exposed
+[student@workstation ~]$ curl -s  http://wordpress-review.apps.ocp4.example.com/wp-admin/install.php  | grep Installation
+	<title>WordPress &rsaquo; Installation</title>
+[student@workstation ~]$ lab authorization-review grade
+
+Grading the student's work for Lab: Configuring Application Security
+
+ Verifying the information collected about the cluster:
+ · The 'authorization-review' project exists...................  PASS
+ · The 'review-secret' secret exists...........................  PASS
+ · The 'mysql' application exists..............................  PASS
+ · The 'MYSQL_USER' environment variable is set from the 'revie
+   w-secret' secret............................................  PASS
+ · The 'MYSQL_PASSWORD' environment variable is set from the 'r
+   eview-secret' secret........................................  PASS
+ · The 'MYSQL_DATABASE' environment variable is set from the 'r
+   eview-secret' secret........................................  PASS
+ · The 'wordpress' application exists..........................  PASS
+ · The 'WORDPRESS_DB_USER' environment variable is set from the
+   'review-secret' secret......................................  PASS
+ · The 'WORDPRESS_DB_PASSWORD' environment variable is set from
+   the 'review-secret' secret..................................  PASS
+ · The 'WORDPRESS_DB_DATABASE' environment variable is set from
+   the 'review-secret' secret..................................  PASS
+ · The 'wordpress-sa' service account exists...................  PASS
+ · The 'wordpress-sa' service account uses the 'anyuid' SCC....  PASS
+ · The 'wordpress' application uses the 'wordpress-sa' service 
+   account.....................................................  PASS
+ · The 'wordpress' application uses the 'anyuid' SCC...........  PASS
+ · The 'wordpress' deployment is exposed at 'wordpress-review.a
+   pps.ocp4.example.com'.......................................  PASS
+ · The 'wordpress-review.apps.ocp4.example.com' URL responds to
+   external requests...........................................  PASS
+
+Overall exercise grade.........................................  PASS
+
+[student@workstation ~]$ 
+
